@@ -1,0 +1,50 @@
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Backend (Gradle / Spring Boot) ---
+backend/.gradle/
+backend/build/
+backend/out/
+backend/bin/
+*.class
+*.jar
+*.war
+*.log
+hs_err_pid*.log
+
+# 로컬 DB·비밀번호 (커밋하지 않음)
+backend/src/main/resources/application-local.properties
+
+# --- Frontend (Node / Vite) ---
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# --- IDE ---
+.idea/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+.factorypath
+.springBeans
+.sts4-cache
+
+# VS Code (개인 설정만 무시하려면 아래 유지)
+# .vscode/
+
+# --- 기타 ---
+*.swp
+*.swo
+*~
