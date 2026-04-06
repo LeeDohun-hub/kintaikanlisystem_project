@@ -1,0 +1,44 @@
+# kintai 프로젝트 — backend + frontend
+# Eclipse 설정을 팀과 공유하려면 아래 .classpath / .project / .settings 항목을 제거하세요.
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Backend (Gradle / Java / Eclipse) ---
+backend/build/
+backend/.gradle/
+backend/out/
+backend/bin/
+*.class
+*.war
+*.ear
+
+# Eclipse (저장소에 포함하지 않을 때)
+backend/.classpath
+backend/.project
+backend/.settings/
+
+# 로컬 DB·비밀번호 (application.properties 예시는 커밋, 실제 비밀은 이 파일만)
+backend/src/main/resources/application-local.properties
+
+# --- Frontend (Node / Vite) ---
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+
+# 환경 변수 (API URL 등)
+.env
+.env.local
+.env.*.local
+
+# --- 기타 ---
+*.tmp
+*.swp
+*~
