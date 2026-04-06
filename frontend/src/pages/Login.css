@@ -1,114 +1,241 @@
+/* Jobcan 風ログイン + Register 共通で利用するクラス */
+
 .login-container {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #1a252f 0%, #2c3e50 50%, #3498db 100%);
+  justify-content: flex-start;
+  padding: 32px 16px 48px;
+  box-sizing: border-box;
 }
 
-.login-box {
-  background: white;
-  padding: 44px 40px;
-  border-radius: 12px;
-  width: 400px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+.login-container--jobcan {
+  background: #ececec;
+}
+
+.login-brand {
+  margin-bottom: 24px;
   text-align: center;
 }
 
-.login-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
+.login-brand__img {
+  max-width: min(320px, 88vw);
+  height: auto;
+  display: block;
+  margin: 0 auto;
 }
 
-.login-box h1 {
-  font-size: 22px;
-  color: #2c3e50;
-  margin-bottom: 4px;
-  font-weight: 700;
+.login-box {
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  padding: 32px 28px 28px;
+  width: 100%;
+  max-width: 440px;
+  box-sizing: border-box;
 }
 
-.login-subtitle {
-  color: #95a5a6;
-  font-size: 13px;
-  margin-bottom: 28px;
-}
-
-.login-box .form-group {
+.login-box--jobcan {
   text-align: left;
-  min-width: unset;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.login-input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  font-size: 15px;
+  border: 1px solid #c8c8c8;
+  border-radius: 2px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.login-input:focus {
+  outline: none;
+  border-color: #5dade2;
+  box-shadow: 0 0 0 1px rgba(93, 173, 226, 0.35);
+}
+
+.login-input::placeholder {
+  color: #999;
+}
+
+.login-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: 20px;
+  font-size: 13px;
+}
+
+.login-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  color: #333;
+  user-select: none;
+}
+
+.login-remember input {
+  width: 16px;
+  height: 16px;
+}
+
+.login-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #1e6bb8;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.login-link-btn:hover {
+  color: #155a99;
 }
 
 .login-btn {
   width: 100%;
-  padding: 12px;
-  background: #3498db;
-  color: white;
+  padding: 14px 16px;
   border: none;
-  border-radius: 6px;
-  font-size: 15px;
+  border-radius: 2px;
+  font-size: 16px;
   font-weight: 600;
-  margin-top: 8px;
-  transition: background 0.2s;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
 }
 
-.login-btn:hover:not(:disabled) {
-  background: #2980b9;
+.login-btn--primary {
+  background: #3488ff;
+  color: #fff;
 }
 
-.login-btn:disabled {
-  opacity: 0.7;
+.login-btn--primary:hover:not(:disabled) {
+  background: #2a78e6;
+}
+
+.login-btn--primary:disabled {
+  opacity: 0.65;
   cursor: not-allowed;
+}
+
+.login-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 28px 0 20px;
+}
+
+.login-or__line {
+  flex: 1;
+  height: 1px;
+  background: #d8d8d8;
+}
+
+.login-or__text {
+  font-size: 13px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.login-social {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  font-size: 14px;
+  background: #fff;
+  border: 1px solid #c8c8c8;
+  border-radius: 2px;
+  cursor: pointer;
+  color: #333;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.login-social-btn:hover {
+  background: #f7f7f7;
+  border-color: #aaa;
+}
+
+.login-social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+}
+
+.login-social-icon--google {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #4285f4;
+  font-family: inherit;
+}
+
+.login-social-icon--external svg {
+  display: block;
 }
 
 .login-hint {
   margin-top: 24px;
-  padding: 14px;
-  background: #f8fafc;
-  border-radius: 6px;
+  padding: 12px 14px;
+  background: #f5f7fa;
+  border: 1px solid #e5e8ec;
+  border-radius: 4px;
   text-align: left;
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
 }
 
-.hint-title {
-  font-size: 12px;
+.login-hint--compact {
+  margin-top: 20px;
+}
+
+.login-hint__title {
+  display: block;
   font-weight: 600;
-  color: #2c3e50;
-  margin-bottom: 8px;
-}
-
-.hint-row {
-  font-size: 12px;
-  color: #7f8c8d;
-  line-height: 1.8;
-}
-
-.error-msg {
-  background: #fdecea;
-  color: #c0392b;
-  padding: 10px 12px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  text-align: left;
-}
-
-.success-msg {
-  background: #e8f8f0;
-  color: #1e8449;
-  padding: 10px 12px;
-  border-radius: 6px;
-  margin-bottom: 16px;
-  font-size: 14px;
-  text-align: left;
+  color: #444;
+  margin-bottom: 6px;
 }
 
 .login-footer-link {
   margin-top: 20px;
   font-size: 14px;
-  color: #7f8c8d;
+  color: #666;
+  text-align: center;
+}
+
+.login-footer-link--center {
+  text-align: center;
 }
 
 .login-footer-link a {
-  color: #3498db;
+  color: #1e6bb8;
   font-weight: 600;
   text-decoration: none;
 }
@@ -116,3 +243,72 @@
 .login-footer-link a:hover {
   text-decoration: underline;
 }
+
+.login-page-footer {
+  margin-top: 28px;
+  text-align: center;
+}
+
+.login-page-footer__lang {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Register / 共通 */
+.login-box h1 {
+  font-size: 20px;
+  color: #333;
+  margin: 0 0 8px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.login-subtitle {
+  color: #777;
+  font-size: 13px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.login-box .form-group {
+  text-align: left;
+  margin-bottom: 14px;
+}
+
+.login-box .form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #444;
+}
+
+.login-box .form-group input {
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 14px;
+  border: 1px solid #c8c8c8;
+  border-radius: 2px;
+  box-sizing: border-box;
+}
+
+.error-msg {
+  background: #fdecea;
+  color: #c0392b;
+  padding: 10px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.success-msg {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 10px 12px;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  text-align: left;
+}
+

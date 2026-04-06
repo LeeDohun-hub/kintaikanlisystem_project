@@ -27,76 +27,87 @@ function Register() {
       await register(form)
       navigate('/login', { replace: true, state: { registered: true } })
     } catch (err) {
-      const msg = err.response?.data?.error || '회원가입에 실패했습니다.'
-      setError(typeof msg === 'string' ? msg : '회원가입에 실패했습니다.')
+      const msg = err.response?.data?.error || '登録に失敗しました。'
+      setError(typeof msg === 'string' ? msg : '登録に失敗しました。')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="login-container">
-      <div className="login-box">
-        <div className="login-icon">⏱</div>
-        <h1>회원가입</h1>
-        <p className="login-subtitle">직원 계정만 등록할 수 있습니다.</p>
+    <div className="login-container login-container--jobcan">
+      <div className="login-brand">
+        <img
+          src="/smartee_logo.png"
+          alt="smartee Japan"
+          className="login-brand__img"
+        />
+      </div>
+
+      <div className="login-box login-box--jobcan">
+        <h1>会員登録</h1>
+        <p className="login-subtitle">スタッフアカウントのみ登録できます。</p>
 
         {error && <div className="error-msg">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label>직원 코드</label>
+            <label htmlFor="reg-employeeCode">スタッフコード</label>
             <input
+              id="reg-employeeCode"
               type="text"
               name="employeeCode"
               value={form.employeeCode}
               onChange={handleChange}
-              placeholder="영문·숫자 (예: emp003)"
+              placeholder="例: emp003"
               required
               autoFocus
             />
           </div>
           <div className="form-group">
-            <label>이름</label>
+            <label htmlFor="reg-name">氏名</label>
             <input
+              id="reg-name"
               type="text"
               name="name"
               value={form.name}
               onChange={handleChange}
-              placeholder="이름"
+              placeholder="氏名"
               required
             />
           </div>
           <div className="form-group">
-            <label>비밀번호</label>
+            <label htmlFor="reg-password">パスワード</label>
             <input
+              id="reg-password"
               type="password"
               name="password"
               value={form.password}
               onChange={handleChange}
-              placeholder="4자 이상"
+              placeholder="4文字以上"
               required
               minLength={4}
             />
           </div>
           <div className="form-group">
-            <label>비밀번호 확인</label>
+            <label htmlFor="reg-confirm">パスワード（確認）</label>
             <input
+              id="reg-confirm"
               type="password"
               name="confirmPassword"
               value={form.confirmPassword}
               onChange={handleChange}
-              placeholder="비밀번호 재입력"
+              placeholder="再入力"
               required
             />
           </div>
-          <button type="submit" className="login-btn" disabled={loading}>
-            {loading ? '처리 중...' : '가입하기'}
+          <button type="submit" className="login-btn login-btn--primary" disabled={loading}>
+            {loading ? '処理中…' : '登録する'}
           </button>
         </form>
 
-        <p className="login-footer-link">
-          이미 계정이 있으신가요? <Link to="/login">로그인</Link>
+        <p className="login-footer-link login-footer-link--center">
+          すでにアカウントをお持ちの方は <Link to="/login">ログイン</Link>
         </p>
       </div>
     </div>
