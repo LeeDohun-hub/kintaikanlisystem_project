@@ -3,6 +3,17 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import './Layout.css'
 
+const EMPLOYEE_NAV = [
+  { to: '/work-input', label: '근무 입력' },
+  { to: '/work-history', label: '근무 이력' }
+]
+
+const ADMIN_NAV = [
+  { to: '/dashboard', label: '대시보드' },
+  { to: '/work-view', label: '근무 조회' },
+  { to: '/statistics', label: '통계' }
+]
+
 function Layout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -11,6 +22,9 @@ function Layout() {
     await logout()
     navigate('/login')
   }
+
+  const navClass = ({ isActive }) => 'nav-link' + (isActive ? ' active' : '')
+  const links = user?.role === 'ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
 
   return (
     <div className="layout">
@@ -24,35 +38,11 @@ function Layout() {
         </div>
 
         <nav className="sidebar-nav">
-          {user?.role === 'EMPLOYEE' && (
-            <>
-              <NavLink to="/work-input" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                근무 입력
-              </NavLink>
-              <NavLink to="/work-history" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                근무 이력
-              </NavLink>
-            </>
-          )}
-          {user?.role === 'ADMIN' && (
-            <>
-              <NavLink to="/dashboard" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                대시보드
-              </NavLink>
-              <NavLink to="/work-view" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                근무 조회
-              </NavLink>
-              <NavLink to="/statistics" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                통계
-              </NavLink>
-              <NavLink to="/revenue" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                매출/손익
-              </NavLink>
-              <NavLink to="/cashflow" className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}>
-                캐시플로우
-              </NavLink>
-            </>
-          )}
+          {links.map(({ to, label }) => (
+            <NavLink key={to} to={to} className={navClass}>
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
         <button type="button" onClick={handleLogout} className="logout-btn">로그아웃</button>

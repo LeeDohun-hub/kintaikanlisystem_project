@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../api/api'
+import MonthPickerCard from '../../components/MonthPickerCard'
+import { useYearMonthState } from '../../hooks/useYearMonthState'
 
 function Statistics() {
-  const ym = new Date().toISOString().slice(0, 7)
-  const [month, setMonth] = useState(ym)
+  const [month, setMonth] = useYearMonthState()
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
 
   useEffect(() => {
     setError('')
-    api.get(`/statistics/monthly?month=${month}`)
-      .then(res => setData(res.data))
+    api
+      .get(`/statistics/monthly?month=${month}`)
+      .then((res) => setData(res.data))
       .catch(() => {
         setData(null)
         setError('통계를 불러오지 못했습니다.')
@@ -21,10 +23,7 @@ function Statistics() {
     <div className="page-container">
       <h2 className="page-title">통계</h2>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <label style={{ marginRight: 8 }}>조회 월</label>
-        <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
-      </div>
+      <MonthPickerCard label="조회 월" month={month} onChange={setMonth} />
 
       {error && <div className="error-msg">{error}</div>}
 

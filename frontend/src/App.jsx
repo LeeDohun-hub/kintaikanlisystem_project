@@ -8,13 +8,12 @@ import WorkHistory from './pages/employee/WorkHistory'
 import Dashboard from './pages/admin/Dashboard'
 import WorkView from './pages/admin/WorkView'
 import Statistics from './pages/admin/Statistics'
-import Revenue from './pages/admin/Revenue'
-import CashFlow from './pages/admin/CashFlow'
 import Layout from './components/Layout'
+import LoadingSpinner from './components/LoadingSpinner'
 
 function PrivateRoute({ children, adminOnly = false }) {
   const { user, loading } = useAuth()
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', marginTop: 100 }}>로딩 중...</div>
+  if (loading) return <LoadingSpinner />
   if (!user) return <Navigate to="/login" replace />
   if (adminOnly && user.role !== 'ADMIN') return <Navigate to="/work-input" replace />
   return children
@@ -22,7 +21,7 @@ function PrivateRoute({ children, adminOnly = false }) {
 
 function AppRoutes() {
   const { user, loading } = useAuth()
-  if (loading) return <div style={{ display: 'flex', justifyContent: 'center', marginTop: 100 }}>로딩 중...</div>
+  if (loading) return <LoadingSpinner />
 
   const defaultPath = user ? (user.role === 'ADMIN' ? '/dashboard' : '/work-input') : '/login'
 
@@ -38,8 +37,6 @@ function AppRoutes() {
         <Route path="dashboard" element={<PrivateRoute adminOnly><Dashboard /></PrivateRoute>} />
         <Route path="work-view" element={<PrivateRoute adminOnly><WorkView /></PrivateRoute>} />
         <Route path="statistics" element={<PrivateRoute adminOnly><Statistics /></PrivateRoute>} />
-        <Route path="revenue" element={<PrivateRoute adminOnly><Revenue /></PrivateRoute>} />
-        <Route path="cashflow" element={<PrivateRoute adminOnly><CashFlow /></PrivateRoute>} />
       </Route>
     </Routes>
   )

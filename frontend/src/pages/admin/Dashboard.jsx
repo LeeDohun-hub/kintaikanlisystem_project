@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../api/api'
+import MonthPickerCard from '../../components/MonthPickerCard'
+import { useYearMonthState } from '../../hooks/useYearMonthState'
 
 function Dashboard() {
-  const ym = new Date().toISOString().slice(0, 7)
-  const [month, setMonth] = useState(ym)
+  const [month, setMonth] = useYearMonthState()
   const [empCount, setEmpCount] = useState(0)
   const [stats, setStats] = useState(null)
   const [error, setError] = useState('')
@@ -11,12 +12,14 @@ function Dashboard() {
   useEffect(() => {
     setError('')
     Promise.all([
-      api.get('/employees').then(r => r.data?.length ?? 0).catch(() => 0),
-      api.get(`/statistics/monthly?month=${month}`).then(r => r.data).catch(() => null)
-    ]).then(([cnt, s]) => {
-      setEmpCount(cnt)
-      setStats(s)
-    }).catch(() => setError('집계를 불러오지 못했습니다.'))
+      api.get('/employees').then((r) => r.data?.length ?? 0).catch(() => 0),
+      api.get(`/statistics/monthly?month=${month}`).then((r) => r.data).catch(() => null)
+    ])
+      .then(([cnt, s]) => {
+        setEmpCount(cnt)
+        setStats(s)
+      })
+      .catch(() => setError('집계를 불러오지 못했습니다.'))
   }, [month])
 
   return (
@@ -24,10 +27,7 @@ function Dashboard() {
       <h2 className="page-title">대시보드</h2>
       {error && <div className="error-msg">{error}</div>}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <label style={{ marginRight: 8 }}>기준 월</label>
-        <input type="month" value={month} onChange={e => setMonth(e.target.value)} />
-      </div>
+      <MonthPickerCard label="기준 월" month={month} onChange={setMonth} />
 
       <div className="card">
         <p><strong>등록 직원 수:</strong> {empCount}명</p>

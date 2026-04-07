@@ -4,33 +4,45 @@ import com.kintai.dto.LoginRequest;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.RegisterRequest;
 import com.kintai.entity.Employee;
+import com.kintai.entity.EmployeeAccount;
 import com.kintai.entity.Role;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeAccountRepository employeeAccountRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
     public LoginResponse login(LoginRequest request) {
         Employee employee = employeeRepository.findByEmployeeCode(request.getEmployeeCode())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
 
-        if (!passwordEncoder.matches(request.getPassword(), employee.getPassword())) {
+        if (employee.getActiveFlag() == null || employee.getActiveFlag() == 0) {
+            throw new RuntimeException("Invalid credentials");
+        }
+
+        EmployeeAccount account = employeeAccountRepository.findById(employee.getEmployeeId())
+                .orElseThrow(() -> new RuntimeException("Invalid credentials"));
+
+        if (!passwordEncoder.matches(request.getPassword(), account.getPasswordHash())) {
             throw new RuntimeException("Invalid credentials");
         }
 
         return LoginResponse.builder()
-                .id(employee.getId())
+                .id(employee.getEmployeeId())
                 .employeeCode(employee.getEmployeeCode())
-                .name(employee.getName())
-                .role(employee.getRole().name())
+                .name(employee.getEmployeeName())
+                .role(account.getRole().name())
                 .build();
     }
 
@@ -42,12 +54,24 @@ public class AuthService {
         if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode().trim())) {
             throw new IllegalArgumentException("이미 사용 중인 직원 코드입니다.");
         }
+
+        BigDecimal hourly = request.getHourlyCost() != null ? request.getHourlyCost() : BigDecimal.ZERO;
+
         Employee employee = Employee.builder()
                 .employeeCode(request.getEmployeeCode().trim())
-                .name(request.getName().trim())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .role(Role.EMPLOYEE)
+                .employeeName(request.getName().trim())
+                .department(request.getDepartment() != null && !request.getDepartment().isBlank()
+                        ? request.getDepartment().trim()
+                        : null)
+                .hourlyCost(hourly)
                 .build();
         employeeRepository.save(employee);
+
+        EmployeeAccount account = EmployeeAccount.builder()
+                .employee(employee)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .role(Role.EMPLOYEE)
+                .build();
+        employeeAccountRepository.save(account);
     }
 }

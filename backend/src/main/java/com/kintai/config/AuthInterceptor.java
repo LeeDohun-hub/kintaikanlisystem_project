@@ -1,5 +1,6 @@
 package com.kintai.config;
 
+import com.kintai.session.LoginSessionSupport;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -15,7 +16,7 @@ public class AuthInterceptor implements HandlerInterceptor {
             return true;
         }
         HttpSession session = request.getSession(false);
-        if (session != null && session.getAttribute("loginUser") != null) {
+        if (LoginSessionSupport.requireAuthenticatedUser(session) != null) {
             return true;
         }
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);

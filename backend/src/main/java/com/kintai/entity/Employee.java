@@ -3,8 +3,11 @@ package com.kintai.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "employees")
+@Table(name = "employee")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -14,18 +17,44 @@ public class Employee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @Column(name = "employee_id")
+    private Long employeeId;
 
-    @Column(nullable = false, unique = true, length = 32)
+    @Column(name = "employee_code", nullable = false, unique = true, length = 20)
     private String employeeCode;
 
-    @Column(nullable = false, length = 100)
-    private String name;
+    @Column(name = "employee_name", nullable = false, length = 50)
+    private String employeeName;
 
-    @Column(nullable = false, length = 255)
-    private String password;
+    @Column(length = 50)
+    private String department;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private Role role;
+    @Column(name = "hourly_cost", nullable = false, precision = 8, scale = 2)
+    private BigDecimal hourlyCost;
+
+    @Column(name = "active_flag", nullable = false)
+    private Integer activeFlag;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        updatedAt = now;
+        if (activeFlag == null) {
+            activeFlag = 1;
+        }
+    }
+
+    @PreUpdate
+    void preUpdate() {
+        updatedAt = LocalDateTime.now();
+    }
 }

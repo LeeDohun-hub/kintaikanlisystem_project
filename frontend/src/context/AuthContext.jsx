@@ -25,8 +25,8 @@ export function AuthProvider({ children }) {
     setUser(null)
   }
 
-  const register = async ({ employeeCode, name, password, confirmPassword }) => {
-    await api.post('/auth/register', { employeeCode, name, password, confirmPassword })
+  const register = async (payload) => {
+    await api.post('/auth/register', payload)
   }
 
   return (

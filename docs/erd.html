@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>근태관리시스템 ERD</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: #f0f2f5;
+      color: #1a1a2e;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%);
+      color: #fff;
+      padding: 36px 48px 28px;
+      display: flex;
+      align-items: flex-end;
+      gap: 24px;
+      border-bottom: 4px solid #e94560;
+    }
+    header .title-block h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+    header .title-block p {
+      font-size: 13px;
+      color: #a0aec0;
+      margin-top: 4px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    header .meta {
+      margin-left: auto;
+      text-align: right;
+      font-size: 12px;
+      color: #718096;
+      line-height: 1.8;
+    }
+    header .meta strong { color: #cbd5e0; }
+
+    /* ── Layout ── */
+    main { max-width: 1380px; margin: 0 auto; padding: 40px 32px 60px; }
+
+    section { margin-bottom: 48px; }
+
+    .section-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #2d3748;
+      border-left: 4px solid #e94560;
+      padding-left: 12px;
+      margin-bottom: 20px;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── ERD Card ── */
+    .erd-card {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 40px 32px;
+      overflow-x: auto;
+    }
+    .erd-card .mermaid {
+      display: flex;
+      justify-content: center;
+      min-width: 900px;
+    }
+
+    /* ── Relationship Summary ── */
+    .rel-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 16px;
+    }
+    .rel-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 18px 20px;
+      border-left: 4px solid #667eea;
+      transition: box-shadow 0.2s;
+    }
+    .rel-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+    .rel-card .rel-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #2d3748;
+      margin-bottom: 6px;
+    }
+    .rel-card .rel-desc {
+      font-size: 12px;
+      color: #718096;
+      line-height: 1.6;
+    }
+    .rel-card .rel-type {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fff;
+      background: #667eea;
+      border-radius: 4px;
+      padding: 2px 8px;
+      margin-bottom: 8px;
+    }
+    .rel-card.nullable .rel-type { background: #ed8936; }
+    .rel-card.cascade .rel-type { background: #38a169; }
+
+    /* ── Table Detail Cards ── */
+    .table-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+    }
+    .table-card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    .table-card-header {
+      padding: 14px 18px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.3px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .table-card-header .icon { font-size: 16px; }
+    .table-card-header .row-count {
+      margin-left: auto;
+      font-size: 11px;
+      font-weight: 400;
+      opacity: 0.85;
+      background: rgba(255,255,255,0.2);
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .th-employees  { background: linear-gradient(90deg, #3182ce, #2b6cb0); }
+    .th-attendance { background: linear-gradient(90deg, #38a169, #276749); }
+    .th-projects   { background: linear-gradient(90deg, #805ad5, #6b46c1); }
+    .th-unit_prices       { background: linear-gradient(90deg, #dd6b20, #c05621); }
+    .th-payment_schedules { background: linear-gradient(90deg, #e53e3e, #c53030); }
+
+    .field-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .field-table th {
+      background: #f7fafc;
+      padding: 8px 12px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .field-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #f0f4f8;
+      vertical-align: middle;
+      color: #2d3748;
+    }
+    .field-table tr:last-child td { border-bottom: none; }
+    .field-table tr:hover td { background: #f7fafc; }
+
+    .badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 3px;
+      letter-spacing: 0.3px;
+    }
+    .badge-pk { background: #fef3c7; color: #92400e; border: 1px solid #fbbf24; }
+    .badge-fk { background: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+    .badge-uk { background: #d1fae5; color: #065f46; border: 1px solid #6ee7b7; }
+
+    .type-chip {
+      font-size: 11px;
+      font-family: 'Consolas', 'Monaco', monospace;
+      color: #4a5568;
+      background: #edf2f7;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .nullable-dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 4px;
+    }
+    .dot-required { background: #fc8181; }
+    .dot-nullable { background: #a0aec0; }
+
+    /* ── Legend ── */
+    .legend-box {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.06);
+      padding: 24px 28px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 32px;
+    }
+    .legend-group h4 {
+      font-size: 12px;
+      font-weight: 700;
+      color: #718096;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: #4a5568;
+      margin-bottom: 8px;
+    }
+    .legend-line {
+      width: 40px;
+      height: 2px;
+      border-radius: 2px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      font-size: 12px;
+      color: #a0aec0;
+      padding: 24px;
+      border-top: 1px solid #e2e8f0;
+      background: #fff;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="title-block">
+    <h1>근태관리시스템 ERD</h1>
+    <p>Entity Relationship Diagram — kintai_db (MySQL 8.x)</p>
+  </div>
+  <div class="meta">
+    <div><strong>테이블 수</strong> : 5</div>
+    <div><strong>데이터베이스</strong> : kintai_db</div>
+    <div><strong>생성일</strong> : 2026-04-07</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- ── ERD Diagram ── -->
+  <section>
+    <p class="section-title">ER 다이어그램</p>
+    <div class="erd-card">
+      <div class="mermaid">
+%%{init: {"theme": "base", "themeVariables": {"primaryColor":"#3182ce","primaryTextColor":"#1a202c","primaryBorderColor":"#2b6cb0","lineColor":"#4a5568","secondaryColor":"#edf2f7","tertiaryColor":"#e2e8f0","edgeLabelBackground":"#fff","attributeBackgroundColorOdd":"#f7fafc","attributeBackgroundColorEven":"#fff","fontSize":"13px"}, "er": {"diagramPadding": 40, "layoutDirection": "TB", "minEntityWidth": 100, "minEntityHeight": 75, "entityPadding": 15, "useMaxWidth": true}}}%%
+erDiagram
+    employees {
+        BIGINT        id             PK  "AUTO_INCREMENT"
+        VARCHAR_32    employee_code  UK  "NOT NULL"
+        VARCHAR_100   name               "NOT NULL"
+        VARCHAR_255   password           "BCrypt Hash"
+        VARCHAR_20    role               "ADMIN or EMPLOYEE"
+    }
+
+    attendance {
+        BIGINT        id             PK  "AUTO_INCREMENT"
+        BIGINT        employee_id    FK  "NOT NULL"
+        DATE          work_date          "NOT NULL"
+        TIME          start_time         "NULL"
+        TIME          end_time           "NULL"
+        INT           break_minutes      "DEFAULT 0 (분)"
+        VARCHAR_20    work_type          "NORMAL/OVERTIME/HOLIDAY"
+        VARCHAR_500   comment            "NULL"
+        BIGINT        project_id     FK  "NULL"
+        DATETIME      created_at         "NOT NULL"
+    }
+
+    projects {
+        BIGINT        id             PK  "AUTO_INCREMENT"
+        VARCHAR_200   name               "NOT NULL"
+        VARCHAR_50    code           UK  "NOT NULL"
+    }
+
+    unit_prices {
+        BIGINT        id             PK  "AUTO_INCREMENT"
+        BIGINT        employee_id    FK  "NOT NULL"
+        VARCHAR_7     month          UK  "YYYY-MM (복합 UK)"
+        DECIMAL_12_2  price              "NOT NULL"
+    }
+
+    payment_schedules {
+        BIGINT        id             PK  "AUTO_INCREMENT"
+        BIGINT        employee_id    FK  "NOT NULL"
+        VARCHAR_7     month              "YYYY-MM"
+        DATE          expected_date      "NOT NULL"
+        DECIMAL_14_2  amount             "NOT NULL"
+        VARCHAR_20    status             "PENDING / PAID"
+        DATETIME      created_at         "NOT NULL"
+    }
+
+    employees  ||--o{ attendance         : "1명 → 다수 근태 기록"
+    projects   |o--o{ attendance         : "1 프로젝트 → 다수 근태 (선택)"
+    employees  ||--o{ unit_prices        : "1명 → 월별 단가 이력"
+    employees  ||--o{ payment_schedules  : "1명 → 다수 입금 예정"
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Relationships ── -->
+  <section>
+    <p class="section-title">관계 (Relationships)</p>
+    <div class="rel-grid">
+
+      <div class="rel-card cascade">
+        <div class="rel-type">1 : N — ON DELETE CASCADE</div>
+        <div class="rel-title">employees → attendance</div>
+        <div class="rel-desc">
+          직원 1명은 다수의 근태 기록을 가질 수 있습니다.<br>
+          <code>attendance.employee_id → employees.id</code><br>
+          직원 삭제 시 관련 근태 기록도 함께 삭제됩니다.
+        </div>
+      </div>
+
+      <div class="rel-card nullable">
+        <div class="rel-type">1 : 0..N — ON DELETE SET NULL</div>
+        <div class="rel-title">projects → attendance</div>
+        <div class="rel-desc">
+          프로젝트는 선택 항목으로, 근태 기록에 없을 수 있습니다 (NULL 허용).<br>
+          <code>attendance.project_id → projects.id</code><br>
+          프로젝트 삭제 시 해당 필드는 NULL로 변경됩니다.
+        </div>
+      </div>
+
+      <div class="rel-card cascade">
+        <div class="rel-type">1 : N — ON DELETE CASCADE</div>
+        <div class="rel-title">employees → unit_prices</div>
+        <div class="rel-desc">
+          직원 1명은 여러 월에 걸쳐 단가를 가질 수 있습니다 (월별 단가 이력).<br>
+          <code>unit_prices.employee_id → employees.id</code><br>
+          <code>(employee_id, month)</code> 복합 UNIQUE 제약.
+        </div>
+      </div>
+
+      <div class="rel-card cascade">
+        <div class="rel-type">1 : N — ON DELETE CASCADE</div>
+        <div class="rel-title">employees → payment_schedules</div>
+        <div class="rel-desc">
+          직원 1명은 다수의 입금 예정 정보를 가질 수 있습니다 (캐시플로우).<br>
+          <code>payment_schedules.employee_id → employees.id</code><br>
+          직원 삭제 시 관련 입금 예정도 함께 삭제됩니다.
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Table Details ── -->
+  <section>
+    <p class="section-title">테이블 상세 정의</p>
+    <div class="table-grid">
+
+      <!-- employees -->
+      <div class="table-card">
+        <div class="table-card-header th-employees">
+          <span class="icon">👤</span>
+          employees
+          <span class="row-count">직원 정보</span>
+        </div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>컬럼명</th>
+              <th>타입</th>
+              <th>키</th>
+              <th>NULL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-pk">PK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>employee_code</td>
+              <td><span class="type-chip">VARCHAR(32)</span></td>
+              <td><span class="badge badge-uk">UK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>name</td>
+              <td><span class="type-chip">VARCHAR(100)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>password</td>
+              <td><span class="type-chip">VARCHAR(255)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>role</td>
+              <td><span class="type-chip">VARCHAR(20)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 12px; font-size:11px; color:#718096; background:#f7fafc; border-top:1px solid #e2e8f0;">
+          role: <code>ADMIN</code> | <code>EMPLOYEE</code>
+        </div>
+      </div>
+
+      <!-- attendance -->
+      <div class="table-card">
+        <div class="table-card-header th-attendance">
+          <span class="icon">📋</span>
+          attendance
+          <span class="row-count">근태 기록</span>
+        </div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>컬럼명</th>
+              <th>타입</th>
+              <th>키</th>
+              <th>NULL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-pk">PK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>employee_id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-fk">FK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>work_date</td>
+              <td><span class="type-chip">DATE</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>start_time</td>
+              <td><span class="type-chip">TIME</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-nullable"></span>NULL</td>
+            </tr>
+            <tr>
+              <td>end_time</td>
+              <td><span class="type-chip">TIME</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-nullable"></span>NULL</td>
+            </tr>
+            <tr>
+              <td>break_minutes</td>
+              <td><span class="type-chip">INT UNSIGNED</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>DEFAULT 0</td>
+            </tr>
+            <tr>
+              <td>work_type</td>
+              <td><span class="type-chip">VARCHAR(20)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>DEFAULT 'NORMAL'</td>
+            </tr>
+            <tr>
+              <td>comment</td>
+              <td><span class="type-chip">VARCHAR(500)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-nullable"></span>NULL</td>
+            </tr>
+            <tr>
+              <td>project_id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-fk">FK</span></td>
+              <td><span class="nullable-dot dot-nullable"></span>NULL</td>
+            </tr>
+            <tr>
+              <td>created_at</td>
+              <td><span class="type-chip">DATETIME(3)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 12px; font-size:11px; color:#718096; background:#f7fafc; border-top:1px solid #e2e8f0;">
+          work_type: <code>NORMAL</code> | <code>OVERTIME</code> | <code>HOLIDAY</code>
+        </div>
+      </div>
+
+      <!-- projects -->
+      <div class="table-card">
+        <div class="table-card-header th-projects">
+          <span class="icon">📁</span>
+          projects
+          <span class="row-count">프로젝트</span>
+        </div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>컬럼명</th>
+              <th>타입</th>
+              <th>키</th>
+              <th>NULL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-pk">PK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>name</td>
+              <td><span class="type-chip">VARCHAR(200)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>code</td>
+              <td><span class="type-chip">VARCHAR(50)</span></td>
+              <td><span class="badge badge-uk">UK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- unit_prices -->
+      <div class="table-card">
+        <div class="table-card-header th-unit_prices">
+          <span class="icon">💴</span>
+          unit_prices
+          <span class="row-count">직원 단가 (월별)</span>
+        </div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>컬럼명</th>
+              <th>타입</th>
+              <th>키</th>
+              <th>NULL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-pk">PK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>employee_id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-fk">FK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>month</td>
+              <td><span class="type-chip">VARCHAR(7)</span></td>
+              <td><span class="badge badge-uk">UK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>price</td>
+              <td><span class="type-chip">DECIMAL(12,2)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 12px; font-size:11px; color:#718096; background:#f7fafc; border-top:1px solid #e2e8f0;">
+          복합 UNIQUE KEY: <code>(employee_id, month)</code> — 1직원당 1월에 1단가
+        </div>
+      </div>
+
+      <!-- payment_schedules -->
+      <div class="table-card">
+        <div class="table-card-header th-payment_schedules">
+          <span class="icon">💰</span>
+          payment_schedules
+          <span class="row-count">입금 예정 (캐시플로우)</span>
+        </div>
+        <table class="field-table">
+          <thead>
+            <tr>
+              <th>컬럼명</th>
+              <th>타입</th>
+              <th>키</th>
+              <th>NULL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-pk">PK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>employee_id</td>
+              <td><span class="type-chip">BIGINT UNSIGNED</span></td>
+              <td><span class="badge badge-fk">FK</span></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>month</td>
+              <td><span class="type-chip">VARCHAR(7)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>expected_date</td>
+              <td><span class="type-chip">DATE</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>amount</td>
+              <td><span class="type-chip">DECIMAL(14,2)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+            <tr>
+              <td>status</td>
+              <td><span class="type-chip">VARCHAR(20)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>DEFAULT 'PENDING'</td>
+            </tr>
+            <tr>
+              <td>created_at</td>
+              <td><span class="type-chip">DATETIME(3)</span></td>
+              <td></td>
+              <td><span class="nullable-dot dot-required"></span>NOT NULL</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="padding:10px 12px; font-size:11px; color:#718096; background:#f7fafc; border-top:1px solid #e2e8f0;">
+          status: <code>PENDING</code> (미지급) | <code>PAID</code> (지급 완료)
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── Legend ── -->
+  <section>
+    <p class="section-title">범례 (Legend)</p>
+    <div class="legend-box">
+
+      <div class="legend-group">
+        <h4>키 타입</h4>
+        <div class="legend-item">
+          <span class="badge badge-pk">PK</span>
+          <span>Primary Key — 기본키</span>
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-fk">FK</span>
+          <span>Foreign Key — 외래키</span>
+        </div>
+        <div class="legend-item">
+          <span class="badge badge-uk">UK</span>
+          <span>Unique Key — 고유키</span>
+        </div>
+      </div>
+
+      <div class="legend-group">
+        <h4>NULL 여부</h4>
+        <div class="legend-item">
+          <span class="nullable-dot dot-required" style="width:12px;height:12px;display:inline-block;border-radius:50%;background:#fc8181;"></span>
+          <span>NOT NULL — 필수 입력</span>
+        </div>
+        <div class="legend-item">
+          <span class="nullable-dot dot-nullable" style="width:12px;height:12px;display:inline-block;border-radius:50%;background:#a0aec0;"></span>
+          <span>NULL 허용 — 선택 입력</span>
+        </div>
+      </div>
+
+      <div class="legend-group">
+        <h4>ERD 관계 기호</h4>
+        <div class="legend-item">
+          <code style="font-size:13px; color:#4a5568;">||--o{</code>
+          <span>1 (필수) : N (0 이상) — 일반 FK</span>
+        </div>
+        <div class="legend-item">
+          <code style="font-size:13px; color:#4a5568;">|o--o{</code>
+          <span>0..1 (선택) : N (0 이상) — 선택 FK (NULL 허용)</span>
+        </div>
+      </div>
+
+      <div class="legend-group">
+        <h4>삭제 정책</h4>
+        <div class="legend-item">
+          <span class="badge" style="background:#38a169;color:#fff;">CASCADE</span>
+          <span>부모 삭제 → 자식도 삭제</span>
+        </div>
+        <div class="legend-item">
+          <span class="badge" style="background:#ed8936;color:#fff;">SET NULL</span>
+          <span>부모 삭제 → FK 컬럼을 NULL로 변경</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  근태관리시스템 (kintai_db) &nbsp;|&nbsp; MySQL 8.x &nbsp;|&nbsp; Spring Boot 3.2 / React &nbsp;|&nbsp; Generated 2026-04-07
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'base',
+    themeVariables: {
+      primaryColor: '#3182ce',
+      primaryTextColor: '#1a202c',
+      attributeBackgroundColorOdd: '#f7fafc',
+      attributeBackgroundColorEven: '#fff',
+      primaryBorderColor: '#2b6cb0',
+      lineColor: '#4a5568',
+      secondaryColor: '#f7fafc',
+      tertiaryColor: '#edf2f7',
+      fontSize: '13px'
+    },
+    er: {
+      diagramPadding: 40,
+      layoutDirection: 'TB',
+      minEntityWidth: 120,
+      minEntityHeight: 80,
+      entityPadding: 15,
+      useMaxWidth: true
+    }
+  });
+</script>
+
+</body>
+</html>

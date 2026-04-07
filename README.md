@@ -217,3 +217,10 @@ ________________________________________
 •	Spring 구조 이해 
 •	실무 개발 흐름 이해 
 
+________________________________________
+📌 백엔드 빌드 (Gradle)
+•	백엔드 디렉터리: `backend/`
+•	컴파일: Windows — `backend\gradlew.bat compileJava` / Mac·Linux — `./gradlew compileJava`
+•	실행: `gradlew.bat bootRun` (또는 `./gradlew bootRun`)
+•	전역 Gradle을 쓰는 경우에도 동일하게 `gradle compileJava`, `gradle bootRun` 가능
+

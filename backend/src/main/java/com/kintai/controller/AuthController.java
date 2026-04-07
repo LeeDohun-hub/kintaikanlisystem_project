@@ -4,13 +4,14 @@ import com.kintai.dto.LoginRequest;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.RegisterRequest;
 import com.kintai.service.AuthService;
+import com.kintai.session.LoginSessionSupport;
+import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -23,9 +24,9 @@ public class AuthController {
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
             authService.register(request);
-            return ResponseEntity.ok(Map.of("message", "회원가입이 완료되었습니다."));
+            return ApiResponses.message("회원가입이 완료되었습니다.");
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(400).body(Map.of("error", e.getMessage()));
+            return ApiResponses.badRequest(e.getMessage());
         }
     }
 
@@ -35,22 +36,24 @@ public class AuthController {
             LoginResponse response = authService.login(request);
             session.setAttribute("loginUser", response);
             return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(401).body(Map.of("error", "아이디 또는 비밀번호가 올바르지 않습니다."));
+        } catch (RuntimeException e) {
+            return ApiResponses.error(
+                    HttpStatus.UNAUTHORIZED,
+                    "아이디 또는 비밀번호가 올바르지 않습니다.");
         }
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpSession session) {
         session.invalidate();
-        return ResponseEntity.ok(Map.of("message", "로그아웃 되었습니다."));
+        return ApiResponses.message("로그아웃 되었습니다.");
     }
 
     @GetMapping("/me")
     public ResponseEntity<?> me(HttpSession session) {
-        Object user = session.getAttribute("loginUser");
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
-            return ResponseEntity.status(401).body(Map.of("error", "Unauthorized"));
+            return ApiResponses.unauthorized();
         }
         return ResponseEntity.ok(user);
     }
