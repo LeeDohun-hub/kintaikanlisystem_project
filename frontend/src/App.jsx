@@ -8,6 +8,8 @@ import WorkHistory from './pages/employee/WorkHistory'
 import Dashboard from './pages/admin/Dashboard'
 import WorkView from './pages/admin/WorkView'
 import Statistics from './pages/admin/Statistics'
+import EmployeeMaster from './pages/admin/EmployeeMaster'
+import AttendanceImport from './pages/admin/AttendanceImport'
 import Layout from './components/Layout'
 import LoadingSpinner from './components/LoadingSpinner'
 
@@ -37,6 +39,8 @@ function AppRoutes() {
         <Route path="dashboard" element={<PrivateRoute adminOnly><Dashboard /></PrivateRoute>} />
         <Route path="work-view" element={<PrivateRoute adminOnly><WorkView /></PrivateRoute>} />
         <Route path="statistics" element={<PrivateRoute adminOnly><Statistics /></PrivateRoute>} />
+        <Route path="employees" element={<PrivateRoute adminOnly><EmployeeMaster /></PrivateRoute>} />
+        <Route path="attendance-import" element={<PrivateRoute adminOnly><AttendanceImport /></PrivateRoute>} />
       </Route>
     </Routes>
   )

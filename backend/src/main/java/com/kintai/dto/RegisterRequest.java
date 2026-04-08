@@ -26,6 +26,10 @@ public class RegisterRequest {
     @DecimalMax(value = "999999.99", message = "시급이 너무 큽니다.")
     private BigDecimal hourlyCost;
 
+    /** ADMIN | EMPLOYEE */
+    @NotBlank(message = "역할을 선택하세요.")
+    private String role;
+
     @NotBlank(message = "비밀번호를 입력하세요.")
     @Size(min = 4, max = 100, message = "비밀번호는 4~100자입니다.")
     private String password;

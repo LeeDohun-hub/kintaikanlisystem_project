@@ -9,6 +9,7 @@ function Register() {
     name: '',
     department: '',
     hourlyCost: '',
+    role: 'EMPLOYEE',
     password: '',
     confirmPassword: ''
   })
@@ -31,6 +32,7 @@ function Register() {
         name: form.name,
         department: form.department || undefined,
         hourlyCost: form.hourlyCost === '' ? undefined : Number(form.hourlyCost),
+        role: form.role,
         password: form.password,
         confirmPassword: form.confirmPassword
       })
@@ -110,6 +112,20 @@ function Register() {
               step="0.01"
             />
           </div>
+          <div className="form-group">
+            <label htmlFor="reg-role">区分</label>
+            <select
+              id="reg-role"
+              name="role"
+              value={form.role}
+              onChange={handleChange}
+              required
+            >
+              <option value="EMPLOYEE">スタッフ</option>
+              <option value="ADMIN">管理者</option>
+            </select>
+          </div>
+
           <div className="form-group">
             <label htmlFor="reg-password">パスワード</label>
             <input

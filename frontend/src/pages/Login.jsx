@@ -9,6 +9,7 @@ const STORAGE_KEY_CODE = 'kintai_login_employee_code'
 function Login() {
   const [employeeCode, setEmployeeCode] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState('EMPLOYEE')
   const [remember, setRemember] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,7 +37,7 @@ function Login() {
     setError('')
     setLoading(true)
     try {
-      const user = await login(employeeCode, password)
+      const user = await login({ employeeCode, password, role })
       try {
         if (remember) {
           localStorage.setItem(STORAGE_KEY_SAVE, '1')
@@ -56,98 +57,121 @@ function Login() {
     }
   }
 
-  const handleSocialClick = () => {
-    window.alert('現在ご利用いただけません。')
-  }
-
   return (
-    <div className="login-container login-container--jobcan">
-      <div className="login-brand">
-        <img
-          src="/smartee_logo.png"
-          alt="smartee Japan"
-          className="login-brand__img"
-        />
-      </div>
-
-      <div className="login-box login-box--jobcan">
-        {registeredMsg && !error && <div className="success-msg">{registeredMsg}</div>}
-        {error && <div className="error-msg">{error}</div>}
-
-        <form onSubmit={handleSubmit} className="login-form">
-          <input
-            type="text"
-            className="login-input"
-            value={employeeCode}
-            onChange={e => setEmployeeCode(e.target.value)}
-            placeholder="メールアドレスまたはスタッフコード"
-            required
-            autoComplete="username"
-            autoFocus
-          />
-
-          <input
-            type="password"
-            className="login-input"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            placeholder="パスワード"
-            required
-            autoComplete="current-password"
-          />
-
-          <div className="login-options">
-            <label className="login-remember">
-              <input
-                type="checkbox"
-                checked={remember}
-                onChange={e => setRemember(e.target.checked)}
-              />
-              <span>ログイン情報を保存する</span>
-            </label>
-            <button type="button" className="login-link-btn" onClick={() => window.alert('管理者にお問い合わせください。')}>
-              パスワードをお忘れの方
-            </button>
+    <div className="login-split">
+      <div className="login-split-left">
+        <div className="login-split-left-inner">
+          <div className="login-split-logo">
+            <img src="/smartee_logo.png" alt="SmarteeJapan" />
           </div>
-
-          <button type="submit" className="login-btn login-btn--primary" disabled={loading}>
-            {loading ? 'ログイン中…' : 'ログイン'}
-          </button>
-        </form>
-
-        <div className="login-or" aria-hidden="true">
-          <span className="login-or__line" />
-          <span className="login-or__text">または</span>
-          <span className="login-or__line" />
+          <h1>勤怠管理を<br />もっとスマートに。</h1>
+          <p>
+            SmarteeJapanの勤怠管理システムで、チームの働き方をシンプルかつ効率的に管理しましょう。
+          </p>
+          <div className="login-split-badges">
+            <span className="login-split-badge">打刻管理</span>
+            <span className="login-split-badge">残業申請</span>
+            <span className="login-split-badge">休暇申請</span>
+            <span className="login-split-badge">給与計算連携</span>
+          </div>
         </div>
-
-        <div className="login-social">
-          <button type="button" className="login-social-btn" onClick={handleSocialClick}>
-            <span className="login-social-icon login-social-icon--google" aria-hidden="true">G</span>
-            Googleでログイン
-          </button>
-          <button type="button" className="login-social-btn" onClick={handleSocialClick}>
-            <span className="login-social-icon login-social-icon--external" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" fill="#666"/>
-              </svg>
-            </span>
-            外部IDでログイン
-          </button>
-        </div>
-
-        <p className="login-hint login-hint--compact">
-          <span className="login-hint__title">テスト用</span>
-          管理者: ADMIN001 / admin123　／　スタッフ: EMP001 / pass123
-        </p>
-
-        <p className="login-footer-link login-footer-link--center">
-          アカウントをお持ちでない方は <Link to="/register">会員登録</Link>
-        </p>
       </div>
 
-      <div className="login-page-footer">
-        <span className="login-page-footer__lang">Language: 日本語</span>
+      <div className="login-split-right">
+        <div className="login-split-right-inner">
+          <h2 className="login-split-title">おかえりなさい</h2>
+          <p className="login-split-sub">スタッフコードとパスワードでサインインしてください</p>
+
+          {registeredMsg && !error && <div className="success-msg">{registeredMsg}</div>}
+          {error && <div className="error-msg">{error}</div>}
+
+          <form onSubmit={handleSubmit}>
+            <div className="login-split-role">
+              <label className="login-split-role-item">
+                <input
+                  type="radio"
+                  name="loginRole"
+                  value="ADMIN"
+                  checked={role === 'ADMIN'}
+                  onChange={() => setRole('ADMIN')}
+                />
+                管理者
+              </label>
+              <label className="login-split-role-item">
+                <input
+                  type="radio"
+                  name="loginRole"
+                  value="EMPLOYEE"
+                  checked={role === 'EMPLOYEE'}
+                  onChange={() => setRole('EMPLOYEE')}
+                />
+                スタッフ
+              </label>
+            </div>
+
+            <label className="login-split-label" htmlFor="login-employeeCode">スタッフコード</label>
+            <div className="login-split-input-wrap">
+              <input
+                id="login-employeeCode"
+                type="text"
+                value={employeeCode}
+                onChange={(e) => setEmployeeCode(e.target.value)}
+                placeholder="例: EMP001"
+                required
+                autoComplete="username"
+                autoFocus
+              />
+            </div>
+
+            <label className="login-split-label" htmlFor="login-password">パスワード</label>
+            <div className="login-split-input-wrap">
+              <input
+                id="login-password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="パスワードを入力してください"
+                required
+                autoComplete="current-password"
+              />
+            </div>
+
+            <div className="login-split-row">
+              <label className="login-split-remember">
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                />
+                ログイン情報を保存する
+              </label>
+              <button
+                type="button"
+                className="login-split-forgot"
+                onClick={() => window.alert('管理者にお問い合わせください。')}
+              >
+                パスワードを忘れた方
+              </button>
+            </div>
+
+            <button type="submit" className="login-split-btn" disabled={loading}>
+              {loading ? 'ログイン中…' : 'ログイン'}
+            </button>
+
+            <p className="login-split-signup">
+              アカウントをお持ちでない方は <Link to="/register">新規登録はこちら</Link>
+            </p>
+
+            <p className="login-hint login-hint--compact">
+              <span className="login-hint__title">テスト用</span>
+              管理者: ADMIN001 / admin123　／　スタッフ: EMP001 / pass123
+            </p>
+          </form>
+
+          <footer className="login-split-footer">
+            &copy; 2026 SmarteeJapan. All rights reserved.
+          </footer>
+        </div>
       </div>
     </div>
   )

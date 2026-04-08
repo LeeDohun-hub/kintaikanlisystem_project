@@ -38,6 +38,13 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
+        if (request.getRole() != null && !request.getRole().isBlank()) {
+            String selected = request.getRole().trim().toUpperCase();
+            if (!account.getRole().name().equals(selected)) {
+                throw new RuntimeException("Invalid credentials");
+            }
+        }
+
         return LoginResponse.builder()
                 .id(employee.getEmployeeId())
                 .employeeCode(employee.getEmployeeCode())
@@ -56,6 +63,12 @@ public class AuthService {
         }
 
         BigDecimal hourly = request.getHourlyCost() != null ? request.getHourlyCost() : BigDecimal.ZERO;
+        Role role;
+        try {
+            role = Role.valueOf(request.getRole().trim().toUpperCase());
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("역할이 올바르지 않습니다. (ADMIN 또는 EMPLOYEE)");
+        }
 
         Employee employee = Employee.builder()
                 .employeeCode(request.getEmployeeCode().trim())
@@ -70,7 +83,7 @@ public class AuthService {
         EmployeeAccount account = EmployeeAccount.builder()
                 .employee(employee)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .role(Role.EMPLOYEE)
+                .role(role)
                 .build();
         employeeAccountRepository.save(account);
     }

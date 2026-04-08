@@ -55,4 +55,31 @@ public class StatisticsService {
                 .byEmployee(list)
                 .build();
     }
+
+    /** 직원용: 본인 월별 집계 */
+    public MonthlyStatisticsResponse monthlyForEmployee(String month, Long employeeId) {
+        YearMonth yearMonth = YearMonth.parse(month);
+        var from = yearMonth.atDay(1);
+        var to = yearMonth.atEndOfMonth();
+        List<WorkTime> rows = workTimeRepository.findForEmployeeMonth(employeeId, from, to);
+
+        long total = 0;
+        for (WorkTime w : rows) {
+            int m = w.getWorkMinutes() != null ? w.getWorkMinutes() : 0;
+            total += m;
+        }
+        Employee emp = employeeRepository.findById(employeeId).orElse(null);
+        List<MonthlyStatisticsResponse.ByEmployee> list = new ArrayList<>();
+        list.add(MonthlyStatisticsResponse.ByEmployee.builder()
+                .employeeId(employeeId)
+                .employeeCode(emp != null ? emp.getEmployeeCode() : null)
+                .employeeName(emp != null ? emp.getEmployeeName() : null)
+                .totalWorkMinutes((int) total)
+                .build());
+        return MonthlyStatisticsResponse.builder()
+                .month(month)
+                .totalWorkMinutes(total)
+                .byEmployee(list)
+                .build();
+    }
 }

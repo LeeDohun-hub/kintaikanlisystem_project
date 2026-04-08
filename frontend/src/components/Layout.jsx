@@ -11,7 +11,9 @@ const EMPLOYEE_NAV = [
 const ADMIN_NAV = [
   { to: '/dashboard', label: '대시보드' },
   { to: '/work-view', label: '근무 조회' },
-  { to: '/statistics', label: '통계' }
+  { to: '/statistics', label: '통계' },
+  { to: '/employees', label: '직원 마스터' },
+  { to: '/attendance-import', label: 'Excel Import' }
 ]
 
 function Layout() {

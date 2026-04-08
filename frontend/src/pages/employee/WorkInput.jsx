@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import api from '../../api/api'
+import { useAuth } from '../../context/AuthContext'
 
 function WorkInput() {
+  const { user } = useAuth()
   const today = new Date().toISOString().slice(0, 10)
   const [form, setForm] = useState({
     workDate: today,
@@ -11,6 +13,10 @@ function WorkInput() {
   })
   const [success, setSuccess] = useState('')
   const [error, setError] = useState('')
+  const [importFile, setImportFile] = useState(null)
+  const [importResult, setImportResult] = useState(null)
+  const [importError, setImportError] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
 
   const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value })
@@ -31,6 +37,30 @@ function WorkInput() {
       setTimeout(() => setSuccess(''), 3000)
     } catch {
       setError('저장에 실패했습니다. 다시 시도해주세요.')
+    }
+  }
+
+  const handleImport = async (e) => {
+    e.preventDefault()
+    setImportError('')
+    setImportResult(null)
+    if (!importFile) {
+      setImportError('가져올 파일을 선택하세요.')
+      return
+    }
+    setImportLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', importFile)
+      const res = await api.post('/attendance/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+      setImportResult(res.data)
+    } catch (err) {
+      const msg = err.response?.data?.error || '가져오기에 실패했습니다.'
+      setImportError(typeof msg === 'string' ? msg : '가져오기에 실패했습니다.')
+    } finally {
+      setImportLoading(false)
     }
   }
 
@@ -77,6 +107,41 @@ function WorkInput() {
           <button type="submit" className="primary">저장</button>
         </form>
       </div>
+
+      {user?.role === 'ADMIN' && (
+        <div className="card" style={{ marginTop: 16 }}>
+          <h3 style={{ marginTop: 0 }}>CSV/Excel Import (관리자)</h3>
+          {importError && <div className="error-msg">{importError}</div>}
+          <form onSubmit={handleImport}>
+            <div className="form-row">
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                required
+              />
+              <button type="submit" className="primary" disabled={importLoading}>
+                {importLoading ? '처리 중…' : '가져오기'}
+              </button>
+            </div>
+            <p style={{ marginTop: 10, fontSize: 13, color: '#666' }}>
+              CSV/XLSX 포맷: 社員ID, 勤務日, 開始時刻, 終了時刻, 休憩(分) (1행 헤더)
+            </p>
+          </form>
+          {importResult && (
+            <div style={{ marginTop: 12, fontSize: 13 }}>
+              <div><strong>성공:</strong> {importResult.successCount} / <strong>실패:</strong> {importResult.errorCount}</div>
+              {importResult.errors?.length > 0 && (
+                <ul style={{ marginTop: 8 }}>
+                  {importResult.errors.slice(0, 10).map((er, idx) => (
+                    <li key={idx}>Row {er.row}: {er.message}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

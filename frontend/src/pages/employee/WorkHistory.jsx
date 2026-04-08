@@ -13,6 +13,16 @@ function WorkHistory() {
 
       <MonthPickerCard label="조회 월" month={month} onChange={setMonth} />
 
+      <div style={{ margin: '8px 0 12px' }}>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => window.open(`/api/reports/monthly.pdf?month=${month}`, '_blank')}
+        >
+          월별 리포팅 PDF 출력
+        </button>
+      </div>
+
       {error && <div className="error-msg">{error}</div>}
 
       <div className="card" style={{ overflowX: 'auto' }}>
