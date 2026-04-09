@@ -62,7 +62,7 @@ public class WorkTimeService {
         workTimeRepository.saveAndFlush(entity);
         WorkTime persisted = workTimeRepository.findById(entity.getWorkId()).orElse(entity);
         Employee emp = employeeRepository.findById(userId).orElse(null);
-        int cumulative = cumulativeMinutesThrough(userId, persisted);
+        int cumulative = cumulativeMinutesForDay(userId, persisted.getWorkDate());
         return WorkTimeMapper.toResponse(persisted, emp, cumulative);
     }
 
@@ -96,7 +96,7 @@ public class WorkTimeService {
         workTimeRepository.saveAndFlush(w);
         WorkTime persisted = workTimeRepository.findById(w.getWorkId()).orElse(w);
         Employee emp = employeeRepository.findById(ownerEmployeeId).orElse(null);
-        int cumulative = cumulativeMinutesThrough(ownerEmployeeId, persisted);
+        int cumulative = cumulativeMinutesForDay(ownerEmployeeId, persisted.getWorkDate());
         return WorkTimeMapper.toResponse(persisted, emp, cumulative);
     }
 
@@ -148,27 +148,12 @@ public class WorkTimeService {
         return out;
     }
 
-    /**
-     * 해당 월에서 직원별 누계(분): 동일 정렬 기준으로 현재 행까지 합산.
-     */
-    private int cumulativeMinutesThrough(Long employeeId, WorkTime current) {
-        YearMonth ym = YearMonth.from(current.getWorkDate());
+    private int cumulativeMinutesForDay(Long employeeId, LocalDate workDate) {
+        YearMonth ym = YearMonth.from(workDate);
         LocalDate from = ym.atDay(1);
-        LocalDate to = ym.atEndOfMonth();
-        List<WorkTime> rows = workTimeRepository.findForEmployeeMonth(employeeId, from, to);
-        rows.sort(Comparator
-                .comparing(WorkTime::getWorkDate)
-                .thenComparing(WorkTime::getStartTime)
-                .thenComparing(w -> w.getWorkId() != null ? w.getWorkId() : 0L));
-        int sum = 0;
-        Long targetId = current.getWorkId();
-        for (WorkTime w : rows) {
-            sum += w.getWorkMinutes() != null ? w.getWorkMinutes() : 0;
-            if (targetId != null && targetId.equals(w.getWorkId())) {
-                break;
-            }
-        }
-        return sum;
+        // 하루 1건 정책이므로, 누계는 월 시작~해당 날짜까지의 합으로 충분합니다.
+        long sum = workTimeRepository.sumWorkMinutes(employeeId, from, workDate);
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
     }
 
     private static int computeWorkMinutes(LocalTime start, LocalTime end, int breakMinutes) {

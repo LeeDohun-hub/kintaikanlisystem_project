@@ -10,6 +10,9 @@ public class WebConfig implements WebMvcConfigurer {
     @Autowired
     private AuthInterceptor authInterceptor;
 
+    @Autowired
+    private AdminOnlyInterceptor adminOnlyInterceptor;
+
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/api/**")
@@ -28,5 +31,8 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/auth/register",
                         "/api/auth/logout",
                         "/api/auth/me");
+
+        registry.addInterceptor(adminOnlyInterceptor)
+                .addPathPatterns("/api/**");
     }
 }

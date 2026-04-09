@@ -1,39 +1,40 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
-import api from '../api/api'
+import React, { createContext, useContext, useState, useEffect } from "react";
+import api from "../api/api";
 
-const AuthContext = createContext(null)
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get('/auth/me')
-      .then(res => setUser(res.data))
+    api
+      .get("/auth/me")
+      .then((res) => setUser(res.data))
       .catch(() => setUser(null))
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => setLoading(false));
+  }, []);
 
   const login = async ({ employeeCode, password, role }) => {
-    const res = await api.post('/auth/login', { employeeCode, password, role })
-    setUser(res.data)
-    return res.data
-  }
+    const res = await api.post("/auth/login", { employeeCode, password, role });
+    setUser(res.data);
+    return res.data;
+  };
 
   const logout = async () => {
-    await api.post('/auth/logout')
-    setUser(null)
-  }
+    await api.post("/auth/logout");
+    setUser(null);
+  };
 
   const register = async (payload) => {
-    await api.post('/auth/register', payload)
-  }
+    await api.post("/auth/register", payload);
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, logout, register, loading }}>
       {children}
     </AuthContext.Provider>
-  )
+  );
 }
 
-export const useAuth = () => useContext(AuthContext)
+export const useAuth = () => useContext(AuthContext);

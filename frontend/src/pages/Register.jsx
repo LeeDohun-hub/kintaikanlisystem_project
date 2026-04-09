@@ -1,49 +1,50 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import './Login.css'
+import React, { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import "./Login.css";
 
 function Register() {
   const [form, setForm] = useState({
-    employeeCode: '',
-    name: '',
-    department: '',
-    hourlyCost: '',
-    role: 'EMPLOYEE',
-    password: '',
-    confirmPassword: ''
-  })
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const { register } = useAuth()
-  const navigate = useNavigate()
+    employeeCode: "",
+    name: "",
+    department: "",
+    hourlyCost: "",
+    role: "EMPLOYEE",
+    password: "",
+    confirmPassword: "",
+  });
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { register } = useAuth();
+  const navigate = useNavigate();
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
-  }
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
     try {
       await register({
         employeeCode: form.employeeCode,
         name: form.name,
         department: form.department || undefined,
-        hourlyCost: form.hourlyCost === '' ? undefined : Number(form.hourlyCost),
+        hourlyCost:
+          form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
         role: form.role,
         password: form.password,
-        confirmPassword: form.confirmPassword
-      })
-      navigate('/login', { replace: true, state: { registered: true } })
+        confirmPassword: form.confirmPassword,
+      });
+      navigate("/login", { replace: true, state: { registered: true } });
     } catch (err) {
-      const msg = err.response?.data?.error || '登録に失敗しました。'
-      setError(typeof msg === 'string' ? msg : '登録に失敗しました。')
+      const msg = err.response?.data?.error || "登録に失敗しました。";
+      setError(typeof msg === "string" ? msg : "登録に失敗しました。");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="login-container login-container--jobcan">
@@ -151,8 +152,12 @@ function Register() {
               required
             />
           </div>
-          <button type="submit" className="login-btn login-btn--primary" disabled={loading}>
-            {loading ? '処理中…' : '登録する'}
+          <button
+            type="submit"
+            className="login-btn login-btn--primary"
+            disabled={loading}
+          >
+            {loading ? "処理中…" : "登録する"}
           </button>
         </form>
 
@@ -161,7 +166,7 @@ function Register() {
         </p>
       </div>
     </div>
-  )
+  );
 }
 
-export default Register
+export default Register;

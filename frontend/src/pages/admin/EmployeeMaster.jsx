@@ -1,52 +1,62 @@
-import React, { useEffect, useState } from 'react'
-import api from '../../api/api'
+import React, { useEffect, useState } from "react";
+import api from "../../api/api";
 
 function EmployeeMaster() {
-  const [rows, setRows] = useState([])
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [rows, setRows] = useState([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
-    employeeCode: '',
-    employeeName: '',
-    department: '',
-    hourlyCost: '',
-    activeFlag: 1
-  })
+    employeeCode: "",
+    employeeName: "",
+    department: "",
+    hourlyCost: "",
+    activeFlag: 1,
+  });
 
   const load = () => {
-    setError('')
-    setLoading(true)
-    api.get('/employees')
+    setError("");
+    setLoading(true);
+    api
+      .get("/employees")
       .then((r) => setRows(r.data || []))
-      .catch(() => setError('직원 목록을 불러오지 못했습니다.'))
-      .finally(() => setLoading(false))
-  }
+      .catch(() => setError("직원 목록을 불러오지 못했습니다."))
+      .finally(() => setLoading(false));
+  };
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load();
+  }, []);
 
   const onChange = (e) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
-  }
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
 
   const onSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
+    e.preventDefault();
+    setError("");
     try {
-      await api.post('/employees', {
+      await api.post("/employees", {
         employeeCode: form.employeeCode,
         employeeName: form.employeeName,
         department: form.department || undefined,
-        hourlyCost: form.hourlyCost === '' ? undefined : Number(form.hourlyCost),
-        activeFlag: Number(form.activeFlag)
-      })
-      setForm({ employeeCode: '', employeeName: '', department: '', hourlyCost: '', activeFlag: 1 })
-      load()
+        hourlyCost:
+          form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
+        activeFlag: Number(form.activeFlag),
+      });
+      setForm({
+        employeeCode: "",
+        employeeName: "",
+        department: "",
+        hourlyCost: "",
+        activeFlag: 1,
+      });
+      load();
     } catch (err) {
-      const msg = err.response?.data?.error || '등록에 실패했습니다.'
-      setError(typeof msg === 'string' ? msg : '등록에 실패했습니다.')
+      const msg = err.response?.data?.error || "등록에 실패했습니다.";
+      setError(typeof msg === "string" ? msg : "등록에 실패했습니다.");
     }
-  }
+  };
 
   return (
     <div className="page-container">
@@ -91,16 +101,22 @@ function EmployeeMaster() {
               onChange={onChange}
               placeholder="시급원가(선택, 미입력 0)"
             />
-            <select name="activeFlag" value={form.activeFlag} onChange={onChange}>
+            <select
+              name="activeFlag"
+              value={form.activeFlag}
+              onChange={onChange}
+            >
               <option value={1}>유효(1)</option>
               <option value={0}>무효(0)</option>
             </select>
-            <button type="submit" className="primary">등록</button>
+            <button type="submit" className="primary">
+              등록
+            </button>
           </div>
         </form>
       </div>
 
-      <div className="card" style={{ overflowX: 'auto' }}>
+      <div className="card" style={{ overflowX: "auto" }}>
         <h3 style={{ marginTop: 0 }}>직원 목록</h3>
         {loading ? (
           <p>불러오는 중…</p>
@@ -118,15 +134,17 @@ function EmployeeMaster() {
             </thead>
             <tbody>
               {rows.length === 0 ? (
-                <tr><td colSpan={6}>데이터가 없습니다.</td></tr>
+                <tr>
+                  <td colSpan={6}>데이터가 없습니다.</td>
+                </tr>
               ) : (
                 rows.map((r) => (
                   <tr key={r.employeeId}>
                     <td>{r.employeeId}</td>
                     <td>{r.employeeCode}</td>
                     <td>{r.employeeName}</td>
-                    <td>{r.department ?? ''}</td>
-                    <td>{r.hourlyCost ?? ''}</td>
+                    <td>{r.department ?? ""}</td>
+                    <td>{r.hourlyCost ?? ""}</td>
                     <td>{r.activeFlag}</td>
                   </tr>
                 ))
@@ -136,8 +154,7 @@ function EmployeeMaster() {
         )}
       </div>
     </div>
-  )
+  );
 }
 
-export default EmployeeMaster
-
+export default EmployeeMaster;

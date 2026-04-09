@@ -1,4 +1,33 @@
 📘1. 근태관리 시스템 (개요)
+
+## 개발 실행 방법(로컬)
+
+### 사전 준비
+- **Java 17** (JDK)
+- **MySQL**: `kintai_db` 사용 (접속 정보는 백엔드 설정 참고)
+- Windows PowerShell 사용 시 명령 연결은 `;` 를 사용하세요. (`&&` 는 PowerShell 버전에 따라 동작하지 않을 수 있습니다.)
+
+### 백엔드 실행 (Spring Boot, 8080)
+`backend/` 폴더에서:
+
+```powershell
+## 개발 편의(쿼리 로그/상세 에러) 프로파일
+$env:SPRING_PROFILES_ACTIVE="dev"
+.\gradlew.bat bootRun
+```
+
+### 프론트 실행 (Vite, 5173)
+`frontend/` 폴더에서:
+
+```powershell
+npm install
+npm run dev
+```
+
+브라우저에서 `http://localhost:5173` 접속.
+
+---
+
 1. 목적
 본 트레이닝은 신입사원이 실제 업무에 가까운 업무 시스템을
 설계·구현·운용하는 경험을 통해

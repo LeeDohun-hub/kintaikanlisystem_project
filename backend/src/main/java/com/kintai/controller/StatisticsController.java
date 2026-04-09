@@ -1,5 +1,6 @@
 package com.kintai.controller;
 
+import com.kintai.auth.AdminOnly;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.MonthlyStatisticsResponse;
 import com.kintai.service.StatisticsService;
@@ -7,7 +8,6 @@ import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +18,7 @@ import java.time.format.DateTimeParseException;
 
 @RestController
 @RequestMapping("/api/statistics")
+@AdminOnly
 @RequiredArgsConstructor
 public class StatisticsController {
 
@@ -28,9 +29,6 @@ public class StatisticsController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
-        }
-        if (!"ADMIN".equals(user.getRole())) {
-            return ApiResponses.error(HttpStatus.FORBIDDEN, "관리자만 조회할 수 있습니다.");
         }
         try {
             MonthlyStatisticsResponse data = statisticsService.monthly(month);

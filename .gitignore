@@ -14,6 +14,10 @@ backend/bin/
 *.log
 hs_err_pid*.log
 
+# Gradle wrapper jar는 커밋 대상
+!backend/gradle/wrapper/gradle-wrapper.jar
+!backend/gradle/wrapper/gradle-wrapper-shared.jar
+
 # 로컬 DB·비밀번호 (커밋하지 않음)
 backend/src/main/resources/application-local.properties
 

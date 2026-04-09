@@ -114,7 +114,9 @@
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, opacity 0.2s;
+  transition:
+    background 0.2s,
+    opacity 0.2s;
 }
 
 .login-btn--primary {
@@ -169,7 +171,9 @@
   border-radius: 2px;
   cursor: pointer;
   color: #333;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .login-social-btn:hover {
@@ -259,12 +263,12 @@
 .login-split {
   min-height: 100vh;
   display: flex;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .login-split-left {
   flex: 1;
-  background: linear-gradient(145deg, #1a3a5c 0%, #5B9BD5 60%, #4ECDC4 100%);
+  background: linear-gradient(145deg, #1a3a5c 0%, #5b9bd5 60%, #4ecdc4 100%);
   display: flex;
   /* 세로(위아래)는 가운데, 가로(좌우)는 왼쪽 정렬 */
   align-items: center;
@@ -277,7 +281,7 @@
 
 .login-split-left::before,
 .login-split-left::after {
-  content: '';
+  content: "";
   position: absolute;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.06);
@@ -384,12 +388,15 @@
   border-radius: 8px;
   font-size: 14px;
   outline: none;
-  transition: border 0.2s, box-shadow 0.2s, background 0.2s;
+  transition:
+    border 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
   background: #fafbfc;
 }
 
 .login-split-input-wrap input:focus {
-  border-color: #5B9BD5;
+  border-color: #5b9bd5;
   box-shadow: 0 0 0 3px rgba(91, 155, 213, 0.1);
   background: #fff;
 }
@@ -420,7 +427,7 @@
 }
 
 .login-split-role-item input {
-  accent-color: #5B9BD5;
+  accent-color: #5b9bd5;
 }
 
 .login-split-remember {
@@ -432,13 +439,13 @@
 }
 
 .login-split-remember input {
-  accent-color: #5B9BD5;
+  accent-color: #5b9bd5;
 }
 
 .login-split-forgot {
   background: none;
   border: none;
-  color: #5B9BD5;
+  color: #5b9bd5;
   font-size: 13px;
   cursor: pointer;
   text-decoration: none;
@@ -451,7 +458,7 @@
 .login-split-btn {
   width: 100%;
   padding: 13px;
-  background: linear-gradient(90deg, #5B9BD5, #4ECDC4);
+  background: linear-gradient(90deg, #5b9bd5, #4ecdc4);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -479,7 +486,7 @@
 }
 
 .login-split-signup a {
-  color: #5B9BD5;
+  color: #5b9bd5;
   text-decoration: none;
   font-weight: 600;
 }
@@ -570,4 +577,3 @@
   font-size: 14px;
   text-align: left;
 }
-

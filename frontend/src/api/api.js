@@ -1,26 +1,26 @@
-import axios from 'axios'
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: "/api",
   withCredentials: true,
-  headers: { 'Content-Type': 'application/json' }
-})
+  headers: { "Content-Type": "application/json" },
+});
 
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const url = `${error.config?.baseURL || ''}${error.config?.url || ''}`
+      const url = `${error.config?.baseURL || ""}${error.config?.url || ""}`;
       const skipRedirect =
-        url.includes('/auth/me') ||
-        url.includes('/auth/login') ||
-        url.includes('/auth/register')
+        url.includes("/auth/me") ||
+        url.includes("/auth/login") ||
+        url.includes("/auth/register");
       if (!skipRedirect) {
-        window.location.href = '/login'
+        window.location.href = "/login";
       }
     }
-    return Promise.reject(error)
-  }
-)
+    return Promise.reject(error);
+  },
+);
 
-export default api
+export default api;

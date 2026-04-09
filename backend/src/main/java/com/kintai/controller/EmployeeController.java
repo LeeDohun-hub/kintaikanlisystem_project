@@ -1,5 +1,6 @@
 package com.kintai.controller;
 
+import com.kintai.auth.AdminOnly;
 import com.kintai.dto.EmployeeCreateRequest;
 import com.kintai.dto.EmployeeSummaryResponse;
 import com.kintai.dto.LoginResponse;
@@ -9,7 +10,6 @@ import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -23,6 +23,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
+@AdminOnly
 @RequiredArgsConstructor
 public class EmployeeController {
 
@@ -33,9 +34,6 @@ public class EmployeeController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
-        }
-        if (!"ADMIN".equals(user.getRole())) {
-            return ApiResponses.error(HttpStatus.FORBIDDEN, "관리자만 조회할 수 있습니다.");
         }
         List<EmployeeSummaryResponse> rows = employeeRepository.findAll().stream()
                 .map(EmployeeController::toSummary)
@@ -48,9 +46,6 @@ public class EmployeeController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
-        }
-        if (!"ADMIN".equals(user.getRole())) {
-            return ApiResponses.error(HttpStatus.FORBIDDEN, "관리자만 등록할 수 있습니다.");
         }
 
         String code = req.getEmployeeCode() != null ? req.getEmployeeCode().trim() : "";

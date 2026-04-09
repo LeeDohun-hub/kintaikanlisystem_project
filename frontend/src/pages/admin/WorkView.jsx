@@ -1,12 +1,12 @@
-import React from 'react'
-import MonthPickerCard from '../../components/MonthPickerCard'
-import { useYearMonthState } from '../../hooks/useYearMonthState'
-import { useWorkTimeByMonth } from '../../hooks/useWorkTimeByMonth'
-import { formatMinutesAsHm } from '../../utils/timeFormat'
+import React from "react";
+import MonthPickerCard from "../../components/MonthPickerCard";
+import { useYearMonthState } from "../../hooks/useYearMonthState";
+import { useWorkTimeByMonth } from "../../hooks/useWorkTimeByMonth";
+import { formatMinutesAsHm } from "../../utils/timeFormat";
 
 function WorkView() {
-  const [month, setMonth] = useYearMonthState()
-  const { rows, error } = useWorkTimeByMonth(month)
+  const [month, setMonth] = useYearMonthState();
+  const { rows, error } = useWorkTimeByMonth(month);
 
   return (
     <div className="page-container">
@@ -16,7 +16,7 @@ function WorkView() {
 
       {error && <div className="error-msg">{error}</div>}
 
-      <div className="card" style={{ overflowX: 'auto' }}>
+      <div className="card" style={{ overflowX: "auto" }}>
         <table className="data-table">
           <thead>
             <tr>
@@ -32,18 +32,22 @@ function WorkView() {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={8}>데이터가 없습니다.</td></tr>
+              <tr>
+                <td colSpan={8}>데이터가 없습니다.</td>
+              </tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={r.workId ?? i}>
-                  <td>{r.employeeName ?? r.employeeCode ?? '-'}</td>
+                  <td>{r.employeeName ?? r.employeeCode ?? "-"}</td>
                   <td>{r.workDate}</td>
                   <td>{r.startTime}</td>
                   <td>{r.endTime}</td>
                   <td>{formatMinutesAsHm(r.breakMinutes)}</td>
                   <td>{r.dailyWorkHm ?? formatMinutesAsHm(r.workMinutes)}</td>
-                  <td>{r.cumulativeWorkHm ?? '—'}</td>
-                  <td style={{ maxWidth: 240, whiteSpace: 'pre-wrap' }}>{r.remarks ?? ''}</td>
+                  <td>{r.cumulativeWorkHm ?? "—"}</td>
+                  <td style={{ maxWidth: 240, whiteSpace: "pre-wrap" }}>
+                    {r.remarks ?? ""}
+                  </td>
                 </tr>
               ))
             )}
@@ -51,7 +55,7 @@ function WorkView() {
         </table>
       </div>
     </div>
-  )
+  );
 }
 
-export default WorkView
+export default WorkView;

@@ -75,45 +75,26 @@ public class AttendanceImportService {
                 if (row == null) continue;
 
                 try {
-                    Long employeeId = resolveEmployeeId(readCellString(row, 0));
-                    if (employeeId == null) {
-                        throw new IllegalArgumentException("社員ID不正");
-                    }
-
-                    LocalDate workDate = readCellDate(row, 1);
-                    LocalTime start = readCellTime(row, 2);
-                    LocalTime end = readCellTime(row, 3);
-                    int breakMinutes = readBreakMinutes(row, 4);
-
-                    if (workDate == null || start == null || end == null) {
-                        throw new IllegalArgumentException("日付／時刻形式不正");
-                    }
-                    if (!start.isBefore(end)) {
-                        throw new IllegalArgumentException("開始＜終了");
-                    }
-                    if (breakMinutes < 0 || breakMinutes > 24 * 60) {
-                        throw new IllegalArgumentException("休憩時間不正");
-                    }
+                    ParsedRow parsed = parseRow(row);
 
                     // 한 직원은 하루 1건만 입력(시간 무관): 파일 내부 + DB 중복 모두 차단
-                    String key = employeeId + "|" + workDate;
+                    String key = parsed.employeeId() + "|" + parsed.workDate();
                     if (!seenInFile.add(key)) {
                         throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
                     }
-                    if (workTimeRepository.existsByEmployeeIdAndWorkDate(employeeId, workDate)) {
+                    if (workTimeRepository.existsByEmployeeIdAndWorkDate(parsed.employeeId(), parsed.workDate())) {
                         throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
                     }
 
-                    int workMinutes = Math.max(0, (end.getHour() * 60 + end.getMinute()) - (start.getHour() * 60 + start.getMinute()) - breakMinutes);
-                    String remarks = truncateRemarks(readCellString(row, 5));
+                    int workMinutes = computeWorkMinutes(parsed.start(), parsed.end(), parsed.breakMinutes());
                     WorkTime wt = WorkTime.builder()
-                            .employeeId(employeeId)
-                            .workDate(workDate)
-                            .startTime(start)
-                            .endTime(end)
-                            .breakMinutes(breakMinutes)
+                            .employeeId(parsed.employeeId())
+                            .workDate(parsed.workDate())
+                            .startTime(parsed.start())
+                            .endTime(parsed.end())
+                            .breakMinutes(parsed.breakMinutes())
                             .workMinutes(workMinutes)
-                            .remarks(remarks)
+                            .remarks(parsed.remarks())
                             .build();
                     toSave.add(wt);
                     success++;
@@ -154,6 +135,37 @@ public class AttendanceImportService {
                 .errorCount(errorCount)
                 .errors(errors)
                 .build();
+    }
+
+    private record ParsedRow(Long employeeId, LocalDate workDate, LocalTime start, LocalTime end, int breakMinutes, String remarks) {}
+
+    private ParsedRow parseRow(Row row) {
+        Long employeeId = resolveEmployeeId(readCellString(row, 0));
+        if (employeeId == null) {
+            throw new IllegalArgumentException("社員ID不正");
+        }
+        LocalDate workDate = readCellDate(row, 1);
+        LocalTime start = readCellTime(row, 2);
+        LocalTime end = readCellTime(row, 3);
+        int breakMinutes = readBreakMinutes(row, 4);
+        String remarks = truncateRemarks(readCellString(row, 5));
+
+        if (workDate == null || start == null || end == null) {
+            throw new IllegalArgumentException("日付／時刻形式不正");
+        }
+        if (!start.isBefore(end)) {
+            throw new IllegalArgumentException("開始＜終了");
+        }
+        if (breakMinutes < 0 || breakMinutes > 24 * 60) {
+            throw new IllegalArgumentException("休憩時間不正");
+        }
+        return new ParsedRow(employeeId, workDate, start, end, breakMinutes, remarks);
+    }
+
+    private static int computeWorkMinutes(LocalTime start, LocalTime end, int breakMinutes) {
+        int startM = start.getHour() * 60 + start.getMinute();
+        int endM = end.getHour() * 60 + end.getMinute();
+        return Math.max(0, endM - startM - breakMinutes);
     }
 
     private Long resolveEmployeeId(String raw) {

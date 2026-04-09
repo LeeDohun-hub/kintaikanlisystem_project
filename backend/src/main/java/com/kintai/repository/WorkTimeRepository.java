@@ -15,6 +15,16 @@ public interface WorkTimeRepository extends JpaRepository<WorkTime, Long> {
     boolean existsByEmployeeIdAndWorkDateAndWorkIdNot(Long employeeId, LocalDate workDate, Long workId);
 
     @Query("""
+            SELECT COALESCE(SUM(w.workMinutes), 0) FROM WorkTime w
+            WHERE w.employeeId = :employeeId
+            AND w.workDate >= :fromDate AND w.workDate <= :toDate
+            """)
+    long sumWorkMinutes(
+            @Param("employeeId") Long employeeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("toDate") LocalDate toDate);
+
+    @Query("""
             SELECT w FROM WorkTime w
             WHERE w.employeeId = :employeeId
             AND w.workDate >= :fromDate AND w.workDate <= :toDate
