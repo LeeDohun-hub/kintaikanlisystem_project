@@ -7,6 +7,7 @@ import com.kintai.service.WorkTimeService;
 import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -36,7 +37,7 @@ public class WorkTimeController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@RequestBody WorkTimeCreateRequest request, HttpSession session) {
+    public ResponseEntity<?> create(@Valid @RequestBody WorkTimeCreateRequest request, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
@@ -44,6 +45,37 @@ public class WorkTimeController {
         try {
             WorkTimeResponse saved = workTimeService.create(user.getId(), request);
             return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> update(
+            @PathVariable("id") Long id,
+            @Valid @RequestBody WorkTimeCreateRequest request,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        try {
+            WorkTimeResponse saved = workTimeService.update(user.getId(), id, request);
+            return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> delete(@PathVariable("id") Long id, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        try {
+            workTimeService.delete(user.getId(), id);
+            return ApiResponses.message("삭제되었습니다.");
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }

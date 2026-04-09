@@ -21,7 +21,9 @@ import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -46,7 +48,8 @@ public class AttendanceImportService {
      * B: 勤務日 (YYYY-MM-DD 또는 Excel 날짜)
      * C: 開始時刻 (HH:mm 또는 Excel time)
      * D: 終了時刻 (HH:mm 또는 Excel time)
-     * E: 休憩(分)
+     * E: 休憩 — 分(整数)、または H:MM (例 1:00)、または Excel の時刻セル
+     * F: 備考 (任意)
      */
     @Transactional
     public ImportAttendanceResponse importExcel(MultipartFile file) {
@@ -65,6 +68,7 @@ public class AttendanceImportService {
             }
 
             int last = sheet.getLastRowNum();
+            Set<String> seenInFile = new HashSet<>();
             for (int r = 1; r <= last; r++) { // r=0 header
                 Row row = sheet.getRow(r);
                 rowNumForMsg = r + 1; // 엑셀 행번호는 1-base
@@ -79,8 +83,7 @@ public class AttendanceImportService {
                     LocalDate workDate = readCellDate(row, 1);
                     LocalTime start = readCellTime(row, 2);
                     LocalTime end = readCellTime(row, 3);
-                    Integer breakMinutes = readCellInt(row, 4);
-                    if (breakMinutes == null) breakMinutes = 0;
+                    int breakMinutes = readBreakMinutes(row, 4);
 
                     if (workDate == null || start == null || end == null) {
                         throw new IllegalArgumentException("日付／時刻形式不正");
@@ -92,7 +95,17 @@ public class AttendanceImportService {
                         throw new IllegalArgumentException("休憩時間不正");
                     }
 
+                    // 한 직원은 하루 1건만 입력(시간 무관): 파일 내부 + DB 중복 모두 차단
+                    String key = employeeId + "|" + workDate;
+                    if (!seenInFile.add(key)) {
+                        throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
+                    }
+                    if (workTimeRepository.existsByEmployeeIdAndWorkDate(employeeId, workDate)) {
+                        throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
+                    }
+
                     int workMinutes = Math.max(0, (end.getHour() * 60 + end.getMinute()) - (start.getHour() * 60 + start.getMinute()) - breakMinutes);
+                    String remarks = truncateRemarks(readCellString(row, 5));
                     WorkTime wt = WorkTime.builder()
                             .employeeId(employeeId)
                             .workDate(workDate)
@@ -100,6 +113,7 @@ public class AttendanceImportService {
                             .endTime(end)
                             .breakMinutes(breakMinutes)
                             .workMinutes(workMinutes)
+                            .remarks(remarks)
                             .build();
                     toSave.add(wt);
                     success++;
@@ -172,18 +186,69 @@ public class AttendanceImportService {
         };
     }
 
-    private static Integer readCellInt(Row row, int idx) {
+    private static int readBreakMinutes(Row row, int idx) {
         Cell c = row.getCell(idx);
-        if (c == null) return null;
+        if (c == null) {
+            return 0;
+        }
         try {
             return switch (c.getCellType()) {
-                case NUMERIC -> (int) Math.round(c.getNumericCellValue());
-                case STRING -> Integer.parseInt(c.getStringCellValue().trim());
-                default -> null;
+                case NUMERIC -> {
+                    if (DateUtil.isCellDateFormatted(c)) {
+                        LocalTime t = c.getLocalDateTimeCellValue().toLocalTime();
+                        yield t.getHour() * 60 + t.getMinute();
+                    }
+                    double v = c.getNumericCellValue();
+                    if (v > 0 && v < 1.0) {
+                        int totalSeconds = (int) Math.round(v * 24 * 60 * 60);
+                        yield totalSeconds / 60;
+                    }
+                    yield (int) Math.round(v);
+                }
+                case STRING -> parseBreakMinutesString(c.getStringCellValue().trim());
+                case FORMULA -> {
+                    CellType rt = c.getCachedFormulaResultType();
+                    if (rt == CellType.NUMERIC) {
+                        if (DateUtil.isCellDateFormatted(c)) {
+                            LocalTime t = c.getLocalDateTimeCellValue().toLocalTime();
+                            yield t.getHour() * 60 + t.getMinute();
+                        }
+                        yield (int) Math.round(c.getNumericCellValue());
+                    }
+                    if (rt == CellType.STRING) {
+                        yield parseBreakMinutesString(c.getStringCellValue().trim());
+                    }
+                    yield 0;
+                }
+                default -> 0;
             };
-        } catch (NumberFormatException ex) {
+        } catch (RuntimeException ex) {
+            return 0;
+        }
+    }
+
+    private static int parseBreakMinutesString(String s) {
+        if (s == null || s.isBlank()) {
+            return 0;
+        }
+        if (s.matches("^\\d+:\\d{2}$")) {
+            String[] p = s.split(":");
+            int h = Integer.parseInt(p[0]);
+            int m = Integer.parseInt(p[1]);
+            return h * 60 + m;
+        }
+        return Integer.parseInt(s.trim());
+    }
+
+    private static String truncateRemarks(String raw) {
+        if (raw == null) {
             return null;
         }
+        String t = raw.trim();
+        if (t.isEmpty()) {
+            return null;
+        }
+        return t.length() > 500 ? t.substring(0, 500) : t;
     }
 
     private static LocalDate readCellDate(Row row, int idx) {

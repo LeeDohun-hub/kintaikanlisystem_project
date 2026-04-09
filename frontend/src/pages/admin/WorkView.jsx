@@ -2,6 +2,7 @@ import React from 'react'
 import MonthPickerCard from '../../components/MonthPickerCard'
 import { useYearMonthState } from '../../hooks/useYearMonthState'
 import { useWorkTimeByMonth } from '../../hooks/useWorkTimeByMonth'
+import { formatMinutesAsHm } from '../../utils/timeFormat'
 
 function WorkView() {
   const [month, setMonth] = useYearMonthState()
@@ -19,16 +20,19 @@ function WorkView() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>직원</th>
-              <th>일자</th>
-              <th>시작</th>
-              <th>종료</th>
-              <th>실근무(분)</th>
+              <th>社員</th>
+              <th>日付</th>
+              <th>始業</th>
+              <th>終業</th>
+              <th>休憩</th>
+              <th>実働(当日)</th>
+              <th>実働(累計)</th>
+              <th>備考</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={5}>데이터가 없습니다.</td></tr>
+              <tr><td colSpan={8}>데이터가 없습니다.</td></tr>
             ) : (
               rows.map((r, i) => (
                 <tr key={r.workId ?? i}>
@@ -36,7 +40,10 @@ function WorkView() {
                   <td>{r.workDate}</td>
                   <td>{r.startTime}</td>
                   <td>{r.endTime}</td>
-                  <td>{r.workMinutes}</td>
+                  <td>{formatMinutesAsHm(r.breakMinutes)}</td>
+                  <td>{r.dailyWorkHm ?? formatMinutesAsHm(r.workMinutes)}</td>
+                  <td>{r.cumulativeWorkHm ?? '—'}</td>
+                  <td style={{ maxWidth: 240, whiteSpace: 'pre-wrap' }}>{r.remarks ?? ''}</td>
                 </tr>
               ))
             )}

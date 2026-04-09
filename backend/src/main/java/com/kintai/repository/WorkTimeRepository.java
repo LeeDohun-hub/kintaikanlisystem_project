@@ -10,11 +10,15 @@ import java.util.List;
 
 public interface WorkTimeRepository extends JpaRepository<WorkTime, Long> {
 
+    boolean existsByEmployeeIdAndWorkDate(Long employeeId, LocalDate workDate);
+
+    boolean existsByEmployeeIdAndWorkDateAndWorkIdNot(Long employeeId, LocalDate workDate, Long workId);
+
     @Query("""
             SELECT w FROM WorkTime w
             WHERE w.employeeId = :employeeId
             AND w.workDate >= :fromDate AND w.workDate <= :toDate
-            ORDER BY w.workDate ASC, w.startTime ASC
+            ORDER BY w.workDate ASC, w.startTime ASC, w.workId ASC
             """)
     List<WorkTime> findForEmployeeMonth(
             @Param("employeeId") Long employeeId,
@@ -24,7 +28,7 @@ public interface WorkTimeRepository extends JpaRepository<WorkTime, Long> {
     @Query("""
             SELECT w FROM WorkTime w
             WHERE w.workDate >= :fromDate AND w.workDate <= :toDate
-            ORDER BY w.workDate ASC, w.employeeId ASC, w.startTime ASC
+            ORDER BY w.workDate ASC, w.employeeId ASC, w.startTime ASC, w.workId ASC
             """)
     List<WorkTime> findForMonth(@Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 }

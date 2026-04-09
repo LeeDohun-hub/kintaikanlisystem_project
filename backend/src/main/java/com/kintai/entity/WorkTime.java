@@ -39,6 +39,10 @@ public class WorkTime {
     @Column(name = "work_minutes", nullable = false)
     private Integer workMinutes;
 
+    /** 備考 (納入物等) — 근무표 비고 */
+    @Column(name = "remarks", length = 500)
+    private String remarks;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 

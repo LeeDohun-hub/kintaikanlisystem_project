@@ -1,5 +1,6 @@
 package com.kintai.dto;
 
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -16,4 +17,8 @@ public class WorkTimeCreateRequest {
     private LocalTime startTime;
     private LocalTime endTime;
     private Integer breakMinutes;
+
+    /** 備考 (任意、最大500文字) */
+    @Size(max = 500, message = "비고는 500자 이하입니다.")
+    private String remarks;
 }

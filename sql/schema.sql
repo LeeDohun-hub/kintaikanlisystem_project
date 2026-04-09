@@ -126,8 +126,14 @@ CREATE TABLE work_time (
   -- 실근무 시간(분). (종료−시작)−휴게 를 애플리케이션에서 계산해 저장하는 값
   work_minutes  INT UNSIGNED    NOT NULL COMMENT '実働（分）',
 
+  -- 備考 (근무표 비고)
+  remarks       VARCHAR(500)    NULL,
+
   -- 이 행이 DB에 기록된 시각
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+
+  -- 한 직원은 하루 1건만 입력(시간과 무관)
+  UNIQUE KEY uk_work_time_emp_date (employee_id, work_date),
 
   -- 직원별·일자별 목록 조회 최적화 (예: 한 달 조회)
   KEY idx_work_time_emp_date (employee_id, work_date),

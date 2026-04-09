@@ -33,7 +33,9 @@ CREATE TABLE IF NOT EXISTS work_time (
   end_time      TIME            NOT NULL,
   break_minutes INT UNSIGNED    NOT NULL,
   work_minutes  INT UNSIGNED    NOT NULL COMMENT '実働（分）',
+  remarks       VARCHAR(500)    NULL COMMENT '備考',
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_work_time_emp_date (employee_id, work_date),
   KEY idx_work_time_emp_date (employee_id, work_date),
   KEY idx_work_time_month (work_date),
   CONSTRAINT fk_work_time_employee FOREIGN KEY (employee_id) REFERENCES employee (employee_id)
@@ -49,6 +51,32 @@ CREATE TABLE IF NOT EXISTS batch_import_history (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- 기존 DB(work_time 이 remarks 없이 생성된 경우) 호환: 컬럼만 추가
+SET @wt_remarks := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'work_time' AND COLUMN_NAME = 'remarks'
+);
+SET @wt_sql := IF(@wt_remarks = 0,
+  'ALTER TABLE work_time ADD COLUMN remarks VARCHAR(500) NULL COMMENT ''備考''',
+  'SELECT 1');
+PREPARE wt_stmt FROM @wt_sql;
+EXECUTE wt_stmt;
+DEALLOCATE PREPARE wt_stmt;
+
+-- 기존 DB(work_time에 UNIQUE(employee_id, work_date)가 없는 경우) 호환: 유니크 키 추가
+SET @wt_uk := (
+  SELECT COUNT(*) FROM information_schema.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'work_time'
+    AND INDEX_NAME = 'uk_work_time_emp_date'
+);
+SET @wt_uk_sql := IF(@wt_uk = 0,
+  'ALTER TABLE work_time ADD UNIQUE KEY uk_work_time_emp_date (employee_id, work_date)',
+  'SELECT 1');
+PREPARE wt_uk_stmt FROM @wt_uk_sql;
+EXECUTE wt_uk_stmt;
+DEALLOCATE PREPARE wt_uk_stmt;
 
 -- 테스트 계정 시드 (중복 시 무시)
 INSERT IGNORE INTO employee (employee_code, employee_name, department, hourly_cost, active_flag, created_at, updated_at) VALUES
