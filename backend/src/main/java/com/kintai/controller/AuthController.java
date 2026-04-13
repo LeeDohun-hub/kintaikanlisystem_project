@@ -24,7 +24,7 @@ public class AuthController {
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
         try {
             authService.register(request);
-            return ApiResponses.message("회원가입이 완료되었습니다.");
+            return ApiResponses.message("会員登録が完了しました。");
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }
@@ -39,14 +39,14 @@ public class AuthController {
         } catch (RuntimeException e) {
             return ApiResponses.error(
                     HttpStatus.UNAUTHORIZED,
-                    "아이디 또는 비밀번호가 올바르지 않습니다.");
+                    "スタッフコードまたはパスワードが正しくありません。");
         }
     }
 
     @PostMapping("/logout")
     public ResponseEntity<?> logout(HttpSession session) {
         session.invalidate();
-        return ApiResponses.message("로그아웃 되었습니다.");
+        return ApiResponses.message("ログアウトしました。");
     }
 
     @GetMapping("/me")

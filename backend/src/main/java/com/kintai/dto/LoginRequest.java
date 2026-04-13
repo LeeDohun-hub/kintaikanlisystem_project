@@ -6,6 +6,6 @@ import lombok.Data;
 public class LoginRequest {
     private String employeeCode;
     private String password;
-    /** ADMIN | EMPLOYEE (로그인 화면 라디오 선택) */
+    /** ADMIN | EMPLOYEE（ログイン画面のラジオ選択） */
     private String role;
 }

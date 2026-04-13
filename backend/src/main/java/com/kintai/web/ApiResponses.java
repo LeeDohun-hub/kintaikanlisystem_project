@@ -6,7 +6,7 @@ import org.springframework.http.ResponseEntity;
 import java.util.Map;
 
 /**
- * REST API JSON 본문을 일관되게 만듭니다.
+ * REST API の JSON 本文を一貫した形で返します。
  */
 public final class ApiResponses {
 

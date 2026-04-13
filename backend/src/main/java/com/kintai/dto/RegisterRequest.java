@@ -11,29 +11,29 @@ import java.math.BigDecimal;
 @Data
 public class RegisterRequest {
 
-    @NotBlank(message = "직원 코드를 입력하세요.")
-    @Size(max = 20, message = "직원 코드는 20자 이하입니다.")
+    @NotBlank(message = "社員コードを入力してください。")
+    @Size(max = 20, message = "社員コードは20文字以下です。")
     private String employeeCode;
 
-    @NotBlank(message = "이름을 입력하세요.")
-    @Size(max = 50, message = "이름은 50자 이하입니다.")
+    @NotBlank(message = "氏名を入力してください。")
+    @Size(max = 50, message = "氏名は50文字以下です。")
     private String name;
 
-    @Size(max = 50, message = "소속은 50자 이하입니다.")
+    @Size(max = 50, message = "所属は50文字以下です。")
     private String department;
 
-    @DecimalMin(value = "0.0", inclusive = true, message = "시급은 0 이상이어야 합니다.")
-    @DecimalMax(value = "999999.99", message = "시급이 너무 큽니다.")
+    @DecimalMin(value = "0.0", inclusive = true, message = "時給は0以上である必要があります。")
+    @DecimalMax(value = "999999.99", message = "時給が大きすぎます。")
     private BigDecimal hourlyCost;
 
     /** ADMIN | EMPLOYEE */
-    @NotBlank(message = "역할을 선택하세요.")
+    @NotBlank(message = "区分を選択してください。")
     private String role;
 
-    @NotBlank(message = "비밀번호를 입력하세요.")
-    @Size(min = 4, max = 100, message = "비밀번호는 4~100자입니다.")
+    @NotBlank(message = "パスワードを入力してください。")
+    @Size(min = 4, max = 100, message = "パスワードは4〜100文字です。")
     private String password;
 
-    @NotBlank(message = "비밀번호 확인을 입력하세요.")
+    @NotBlank(message = "パスワード（確認）を入力してください。")
     private String confirmPassword;
 }

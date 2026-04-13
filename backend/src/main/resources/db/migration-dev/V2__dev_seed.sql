@@ -1,8 +1,8 @@
--- 개발/데모용 시드 (dev 프로파일에서만 실행)
+-- 開発/デモ用シード（dev プロファイルでのみ実行）
 INSERT IGNORE INTO employee (employee_code, employee_name, department, hourly_cost, active_flag, created_at, updated_at) VALUES
-  ('ADMIN001', '시스템관리자', NULL, 5000.00, 1, NOW(3), NOW(3)),
-  ('EMP001',   '테스트직원1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
-  ('EMP002',   '테스트직원2',  NULL, 3000.00, 1, NOW(3), NOW(3));
+  ('ADMIN001', 'システム管理者', NULL, 5000.00, 1, NOW(3), NOW(3)),
+  ('EMP001',   'テスト従業員1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
+  ('EMP002',   'テスト従業員2',  NULL, 3000.00, 1, NOW(3), NOW(3));
 
 INSERT INTO employee_account (employee_id, password_hash, role)
 SELECT e.employee_id, '$2b$10$wyEbhn0AgE3Uy/Ndg6WyoeZIbtimGKbt91sCHgLoBv5EfkfvF9j9e', 'ADMIN'

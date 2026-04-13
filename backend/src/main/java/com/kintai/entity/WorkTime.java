@@ -39,7 +39,7 @@ public class WorkTime {
     @Column(name = "work_minutes", nullable = false)
     private Integer workMinutes;
 
-    /** 備考 (納入物等) — 근무표 비고 */
+    /** 備考（納入物等）— 勤務表メモ */
     @Column(name = "remarks", length = 500)
     private String remarks;
 

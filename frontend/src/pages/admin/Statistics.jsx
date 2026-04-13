@@ -15,15 +15,15 @@ function Statistics() {
       .then((res) => setData(res.data))
       .catch(() => {
         setData(null);
-        setError("통계를 불러오지 못했습니다.");
+        setError("統計を読み込めませんでした。");
       });
   }, [month]);
 
   return (
     <div className="page-container">
-      <h2 className="page-title">통계</h2>
+      <h2 className="page-title">統計</h2>
 
-      <MonthPickerCard label="조회 월" month={month} onChange={setMonth} />
+      <MonthPickerCard label="表示月" month={month} onChange={setMonth} />
 
       <div style={{ margin: "8px 0 12px" }}>
         <button
@@ -33,7 +33,7 @@ function Statistics() {
             window.open(`/api/reports/monthly.pdf?month=${month}`, "_blank")
           }
         >
-          월별 리포트 PDF 출력
+          月次レポート PDF
         </button>
       </div>
 
@@ -45,7 +45,7 @@ function Statistics() {
             {JSON.stringify(data, null, 2)}
           </pre>
         ) : (
-          !error && <p>데이터가 없습니다.</p>
+          !error && <p>データがありません。</p>
         )}
       </div>
     </div>

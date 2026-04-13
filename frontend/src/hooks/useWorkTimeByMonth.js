@@ -19,7 +19,7 @@ export function useWorkTimeByMonth(month) {
       .then((res) => setRows(res.data || []))
       .catch(() => {
         setRows([]);
-        setError("데이터를 불러오지 못했습니다.");
+        setError("データを読み込めませんでした。");
       });
   }, [month, tick]);
 

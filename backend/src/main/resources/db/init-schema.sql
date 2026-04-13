@@ -1,5 +1,5 @@
--- 애플리케이션 기동 시 자동 실행 (MySQL, kintai_db 연결 후)
--- 수동 적용은 프로젝트 루트 sql/schema.sql 사용
+-- アプリケーション起動時に自動実行（MySQL、kintai_db 接続後）
+-- 手動適用はプロジェクトルート sql/schema.sql を使用
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS batch_import_history (
 
 SET FOREIGN_KEY_CHECKS = 1;
 
--- 기존 DB(work_time 이 remarks 없이 생성된 경우) 호환: 컬럼만 추가
+-- 既存 DB（work_time に remarks なしで作成された場合）互換: 列のみ追加
 SET @wt_remarks := (
   SELECT COUNT(*) FROM information_schema.COLUMNS
   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'work_time' AND COLUMN_NAME = 'remarks'
@@ -64,7 +64,7 @@ PREPARE wt_stmt FROM @wt_sql;
 EXECUTE wt_stmt;
 DEALLOCATE PREPARE wt_stmt;
 
--- 기존 DB(work_time에 UNIQUE(employee_id, work_date)가 없는 경우) 호환: 유니크 키 추가
+-- 既存 DB（work_time に UNIQUE(employee_id, work_date) がない場合）互換: ユニークキー追加
 SET @wt_uk := (
   SELECT COUNT(*) FROM information_schema.STATISTICS
   WHERE TABLE_SCHEMA = DATABASE()
@@ -78,11 +78,11 @@ PREPARE wt_uk_stmt FROM @wt_uk_sql;
 EXECUTE wt_uk_stmt;
 DEALLOCATE PREPARE wt_uk_stmt;
 
--- 테스트 계정 시드 (중복 시 무시)
+-- テストアカウントシード（重複時は無視）
 INSERT IGNORE INTO employee (employee_code, employee_name, department, hourly_cost, active_flag, created_at, updated_at) VALUES
-  ('ADMIN001', '시스템관리자', NULL, 5000.00, 1, NOW(3), NOW(3)),
-  ('EMP001',   '테스트직원1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
-  ('EMP002',   '테스트직원2',  NULL, 3000.00, 1, NOW(3), NOW(3));
+  ('ADMIN001', 'システム管理者', NULL, 5000.00, 1, NOW(3), NOW(3)),
+  ('EMP001',   'テスト従業員1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
+  ('EMP002',   'テスト従業員2',  NULL, 3000.00, 1, NOW(3), NOW(3));
 
 INSERT INTO employee_account (employee_id, password_hash, role)
 SELECT e.employee_id, '$2b$10$wyEbhn0AgE3Uy/Ndg6WyoeZIbtimGKbt91sCHgLoBv5EfkfvF9j9e', 'ADMIN'

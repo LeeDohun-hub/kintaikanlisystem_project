@@ -54,7 +54,7 @@ public class ReportController {
                     : statisticsService.monthlyForEmployee(month, user.getId());
             detailLines = workTimeService.listByMonth(month, user);
         } catch (DateTimeParseException e) {
-            return ApiResponses.badRequest("월 형식이 올바르지 않습니다. (YYYY-MM)");
+            return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
         }
 
         byte[] pdf = buildMonthlyPdf(data, detailLines);

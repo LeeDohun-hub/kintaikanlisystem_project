@@ -6,8 +6,8 @@ import jakarta.servlet.http.HttpSession;
 import java.util.Map;
 
 /**
- * 세션의 loginUser를 LoginResponse로 통일해 읽습니다.
- * (직렬화/역직렬화로 Map 형태가 되는 환경에서도 동일하게 동작하도록 합니다.)
+ * セッションの loginUser を LoginResponse として統一的に読み取ります。
+ * （直列化で Map になる環境でも同様に動作します。）
  */
 public final class LoginSessionSupport {
 
@@ -20,7 +20,7 @@ public final class LoginSessionSupport {
         return resolve(session.getAttribute("loginUser"));
     }
 
-    /** 세션에 로그인 사용자가 있고 {@code id}가 채워져 있을 때만 반환합니다. */
+    /** セッションにログインユーザーがあり {@code id} が埋まっているときのみ返します。 */
     public static LoginResponse requireAuthenticatedUser(HttpSession session) {
         LoginResponse u = getLoginUser(session);
         if (u == null || u.getId() == null) {

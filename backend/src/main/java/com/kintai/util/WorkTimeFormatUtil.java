@@ -1,7 +1,7 @@
 package com.kintai.util;
 
 /**
- * 근무표 표시용: 분 단위를 {@code H:MM} 문자열로 변환 (累計는 24시간을 넘을 수 있음).
+ * 勤務表表示用：分を {@code H:MM} 文字列へ変換（累計は24時間を超え得る）。
  */
 public final class WorkTimeFormatUtil {
 

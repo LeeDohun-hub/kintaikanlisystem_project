@@ -1,47 +1,47 @@
-# Debug Report — work-history 근무이력 조회 500 오류
+# Debug Report — work-history 勤務履歴照会 500 エラー
 
-| 항목 | 내용 |
+| 項目 | 内容 |
 |------|------|
-| **발생일** | 2026-04-07 |
-| **증상** | `/work-history` 화면에서 "데이터를 불러오지 못했습니다." 메시지 표시 |
-| **엔드포인트** | `GET /api/attendance?month=YYYY-MM` |
-| **HTTP 상태** | 500 Internal Server Error |
-| **영향 범위** | 일반 직원(EMPLOYEE) · 관리자(ADMIN) 모두 근무이력 조회 불가 |
+| **発生日** | 2026-04-07 |
+| **症状** | `/work-history` 画面で「データを読み込めませんでした。」メッセージ表示 |
+| **エンドポイント** | `GET /api/attendance?month=YYYY-MM` |
+| **HTTP 状態** | 500 Internal Server Error |
+| **影響範囲** | 一般従業員（EMPLOYEE）・管理者（ADMIN）とも勤務履歴照会不可 |
 
 ---
 
-## 1. 증상
+## 1. 症状
 
-- `WorkInput`(근무 입력, `POST /api/attendance`) → **정상 동작**, DB에 데이터 저장 확인
-- `WorkHistory`(근무 이력, `GET /api/attendance?month=2026-04`) → **500 에러**
-- 브라우저 콘솔: `GET http://localhost:5173/api/attendance?month=2026-04 500 (Internal Server Error)`
-- 오류 발생 위치: `useAttendanceByMonth.js:14`
+- `WorkInput`（勤務入力、`POST /api/attendance`）→ **正常動作**、DB への保存を確認
+- `WorkHistory`（勤務履歴、`GET /api/attendance?month=2026-04`）→ **500 エラー**
+- ブラウザコンソール: `GET http://localhost:5173/api/attendance?month=2026-04 500 (Internal Server Error)`
+- エラー発生箇所: `useAttendanceByMonth.js:14`
 
 ---
 
-## 2. 디버깅 과정
+## 2. デバッグ過程
 
-### 2-1. 초기 가설 검토
+### 2-1. 初期仮説の検討
 
-| 가설 | 검토 결과 |
+| 仮説 | 検討結果 |
 |------|-----------|
-| 세션 만료(401) | axios 인터셉터가 `/login` 으로 리디렉션 — 사용자가 화면에 남아 있으므로 제외 |
-| `LocalTime` 직렬화 오류 | `AttendanceResponse`의 `startTime` / `endTime` 에 `@JsonFormat` 누락 — 별도 수정 적용, 그러나 500 원인은 아님 |
-| DB 쿼리 오류 | `findForEmployeeMonth` JPQL 구문 검토 — 이상 없음 |
-| `memo` 컬럼 불일치 | 엔티티 필드 `comment → memo` 리팩토링 후 `AttendanceMapper` 반영 — 스키마 자동 업데이트(`ddl-auto=update`)로 처리 |
+| セッション期限切れ（401） | axios インターセプターが `/login` にリダイレクト — ユーザーが画面に留まっているため除外 |
+| `LocalTime` シリアライズエラー | `AttendanceResponse` の `startTime` / `endTime` に `@JsonFormat` 欠落 — 別途修正適用、ただし 500 の原因ではない |
+| DB クエリエラー | `findForEmployeeMonth` JPQL 文の検討 — 異常なし |
+| `memo` 列の不一致 | エンティティフィールド `comment → memo` リファクタ後 `AttendanceMapper` を反映 — スキーマ自動更新（`ddl-auto=update`）で処理 |
 
-### 2-2. 오류 메시지 노출 설정 추가
+### 2-2. エラーメッセージ露出設定の追加
 
-Spring Boot 기본 오류 응답에는 원인 메시지가 포함되지 않아, `application.properties`에 아래 설정을 추가하여 실제 메시지를 확인:
+Spring Boot の既定エラー応答には原因メッセージが含まれないため、`application.properties` に以下を追加して実際のメッセージを確認:
 
 ```properties
 server.error.include-message=always
 server.error.include-exception=true
 ```
 
-### 2-3. 실제 오류 메시지 확인
+### 2-3. 実際のエラーメッセージの確認
 
-백엔드 재시작 후 Network 탭 Response에서 확인된 메시지:
+バックエンド再起動後、Network タブの Response で確認されたメッセージ:
 
 ```json
 {
@@ -53,64 +53,64 @@ server.error.include-exception=true
 
 ---
 
-## 3. 근본 원인
+## 3. 根本原因
 
-### Spring Boot 3.x (Spring 6) 의 파라미터명 바인딩 정책 변경
+### Spring Boot 3.x（Spring 6）におけるパラメータ名バインディング方針の変更
 
-`AttendanceController`의 GET 핸들러:
+`AttendanceController` の GET ハンドラ:
 
 ```java
-// 수정 전 — 파라미터명 미명시
+// 修正前 — パラメータ名未指定
 @GetMapping
 public ResponseEntity<?> list(@RequestParam String month, HttpSession session) { ... }
 ```
 
-**Spring Boot 2.x**에서는 `LocalVariableTableParameterNameDiscoverer`를 통해 바이트코드에서 파라미터명을 자동으로 읽을 수 있었습니다.
+**Spring Boot 2.x** では `LocalVariableTableParameterNameDiscoverer` によりバイトコードからパラメータ名を自動取得できました。
 
-**Spring Boot 3.x (Spring 6)** 부터는 이 방식이 제거되었고, 아래 두 조건 중 하나를 충족해야 합니다:
+**Spring Boot 3.x（Spring 6）** からはこの方式が削除され、次のいずれかを満たす必要があります:
 
-| 방법 | 설명 |
+| 方法 | 説明 |
 |------|------|
-| `@RequestParam("month")` | 어노테이션에 이름 직접 명시 |
-| 컴파일 옵션 `-parameters` | `javac` / Gradle에 플래그 추가 |
+| `@RequestParam("month")` | アノテーションに名前を直接指定 |
+| コンパイルオプション `-parameters` | `javac` / Gradle にフラグ追加 |
 
-`POST /api/attendance`는 `@RequestBody`를 사용하므로 파라미터명 바인딩이 필요 없어 정상 동작했지만, `GET` 핸들러는 `@RequestParam String month`가 파라미터명 리플렉션에 의존하여 500 에러가 발생했습니다.
+`POST /api/attendance` は `@RequestBody` を使用するためパラメータ名バインディングが不要で正常動作しましたが、GET ハンドラは `@RequestParam String month` がパラメータ名リフレクションに依存し 500 が発生しました。
 
 ---
 
-## 4. 수정 내용
+## 4. 修正内容
 
-### 4-1. 핵심 수정 — `AttendanceController.java`
+### 4-1. 主修正 — `AttendanceController.java`
 
 ```java
-// 수정 후 — 파라미터명 명시
+// 修正後 — パラメータ名を明示
 @GetMapping
 public ResponseEntity<?> list(@RequestParam("month") String month, HttpSession session) { ... }
 ```
 
-### 4-2. 함께 수정한 내용
+### 4-2. あわせて修正した内容
 
-| 파일 | 수정 내용 |
+| ファイル | 修正内容 |
 |------|-----------|
-| `AttendanceResponse.java` | `startTime` / `endTime` 필드에 `@JsonFormat(pattern = "HH:mm")` 추가 |
-| `application.properties` | `spring.jackson.serialization.write-dates-as-timestamps=false` 추가 (LocalDate/Time 직렬화 표준화) |
-| `application.properties` | `spring.jackson.deserialization.fail-on-unknown-properties=false` 추가 |
-| `ApiExceptionHandler.java` | 예외의 루트 원인 메시지를 응답에 포함 (디버깅용) |
+| `AttendanceResponse.java` | `startTime` / `endTime` フィールドに `@JsonFormat(pattern = "HH:mm")` を追加 |
+| `application.properties` | `spring.jackson.serialization.write-dates-as-timestamps=false` を追加（LocalDate/Time シリアライズの標準化） |
+| `application.properties` | `spring.jackson.deserialization.fail-on-unknown-properties=false` を追加 |
+| `ApiExceptionHandler.java` | 例外のルート原因メッセージを応答に含める（デバッグ用） |
 
 ---
 
-## 5. 재발 방지
+## 5. 再発防止
 
-### 옵션 A — 모든 `@RequestParam` 에 이름 명시 (권장)
+### オプション A — すべての `@RequestParam` に名前を明示（推奨）
 
 ```java
 @RequestParam("month") String month
 @RequestParam("page")  int page
 ```
 
-### 옵션 B — Gradle 컴파일 옵션 추가
+### オプション B — Gradle コンパイルオプションの追加
 
-`build.gradle`에 아래를 추가하면 이름 미명시 `@RequestParam`도 자동으로 동작:
+`build.gradle` に以下を追加すると、名前未指定の `@RequestParam` も自動で動作します:
 
 ```groovy
 tasks.withType(JavaCompile).configureEach {
@@ -120,8 +120,8 @@ tasks.withType(JavaCompile).configureEach {
 
 ---
 
-## 6. 교훈
+## 6. 教訓
 
-1. **Spring Boot 2.x → 3.x 마이그레이션** 시 `@RequestParam` / `@PathVariable` 에는 반드시 이름을 명시하거나 `-parameters` 플래그를 설정해야 한다.
-2. `POST`(RequestBody)는 문제없이 동작하더라도 `GET`(RequestParam)에서 동일한 이슈가 잠재할 수 있다.
-3. `server.error.include-message=always` 설정은 개발 환경에서 오류 원인을 빠르게 파악하는 데 유용하다. **운영 배포 전에는 반드시 제거 또는 비활성화**해야 한다.
+1. **Spring Boot 2.x → 3.x マイグレーション** 時は `@RequestParam` / `@PathVariable` には必ず名前を明示するか、`-parameters` フラグを設定する必要がある。
+2. `POST`（RequestBody）は問題なく動いても `GET`（RequestParam）で同様の問題が潜むことがある。
+3. `server.error.include-message=always` 設定は開発環境でエラー原因を早く把握するのに有用。**本番デプロイ前には必ず削除または無効化**する。

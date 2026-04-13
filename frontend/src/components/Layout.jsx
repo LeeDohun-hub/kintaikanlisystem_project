@@ -4,16 +4,16 @@ import { useAuth } from "../context/AuthContext";
 import "./Layout.css";
 
 const EMPLOYEE_NAV = [
-  { to: "/work-input", label: "근무 입력" },
-  { to: "/work-history", label: "근무 이력" },
+  { to: "/work-input", label: "勤務入力" },
+  { to: "/work-history", label: "勤務履歴" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/dashboard", label: "대시보드" },
-  { to: "/work-view", label: "근무 조회" },
-  { to: "/statistics", label: "통계" },
-  { to: "/employees", label: "직원 마스터" },
-  { to: "/attendance-import", label: "Excel Import" },
+  { to: "/dashboard", label: "ダッシュボード" },
+  { to: "/work-view", label: "勤務照会" },
+  { to: "/statistics", label: "統計" },
+  { to: "/employees", label: "従業員マスタ" },
+  { to: "/attendance-import", label: "Excel 取込" },
 ];
 
 function Layout() {
@@ -32,12 +32,12 @@ function Layout() {
     <div className="layout">
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="sidebar-logo">근태관리시스템</div>
+          <div className="sidebar-logo">勤怠管理システム</div>
           <div className="sidebar-user">{user?.name}</div>
           <span
             className={`role-badge ${user?.role === "ADMIN" ? "admin" : "employee"}`}
           >
-            {user?.role === "ADMIN" ? "관리자" : "직원"}
+            {user?.role === "ADMIN" ? "管理者" : "スタッフ"}
           </span>
         </div>
 
@@ -50,7 +50,7 @@ function Layout() {
         </nav>
 
         <button type="button" onClick={handleLogout} className="logout-btn">
-          로그아웃
+          ログアウト
         </button>
       </aside>
 

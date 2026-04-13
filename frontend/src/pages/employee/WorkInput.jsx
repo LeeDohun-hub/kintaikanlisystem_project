@@ -3,6 +3,7 @@ import { useAuth } from "../../context/AuthContext";
 import { createWorkTime } from "../../api/worktime";
 import { getErrorMessage } from "../../api/error";
 import AttendanceImportCard from "../../components/AttendanceImportCard";
+import KintaihyoImportCard from "../../components/KintaihyoImportCard";
 import { formatMinutesAsHm, parseHmToMinutes } from "../../utils/timeFormat";
 
 function WorkInput() {
@@ -28,11 +29,11 @@ function WorkInput() {
     setError("");
     const breakMinutes = parseHmToMinutes(form.breakHm);
     if (Number.isNaN(breakMinutes)) {
-      setError("휴식은 H:MM 형식으로 입력하세요. (예: 1:00, 1:30)");
+      setError("休憩は H:MM 形式で入力してください。（例: 1:00, 1:30）");
       return;
     }
     if (breakMinutes < 0 || breakMinutes > 24 * 60) {
-      setError("휴식 시간이 올바른 범위인지 확인하세요.");
+      setError("休憩時間が正しい範囲かご確認ください。");
       return;
     }
     try {
@@ -43,10 +44,10 @@ function WorkInput() {
         breakMinutes,
         remarks: form.remarks.trim() || undefined,
       });
-      setSuccess("근무 정보가 저장되었습니다.");
+      setSuccess("勤務情報を保存しました。");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(getErrorMessage(err, "저장에 실패했습니다. 다시 시도해주세요."));
+      setError(getErrorMessage(err, "保存に失敗しました。再度お試しください。"));
     }
   };
 
@@ -62,7 +63,7 @@ function WorkInput() {
 
   return (
     <div className="page-container">
-      <h2 className="page-title">근무 입력</h2>
+      <h2 className="page-title">勤務入力</h2>
 
       {success && <div className="success-msg">{success}</div>}
       {error && <div className="error-msg">{error}</div>}
@@ -71,7 +72,7 @@ function WorkInput() {
         <form onSubmit={handleSubmit}>
           <div className="form-row">
             <div className="form-group">
-              <label>근무일 *</label>
+              <label>勤務日 *</label>
               <input
                 type="date"
                 name="workDate"
@@ -81,7 +82,7 @@ function WorkInput() {
               />
             </div>
             <div className="form-group">
-              <label>시작 시간 *</label>
+              <label>開始時刻 *</label>
               <input
                 type="time"
                 name="startTime"
@@ -91,7 +92,7 @@ function WorkInput() {
               />
             </div>
             <div className="form-group">
-              <label>종료 시간 *</label>
+              <label>終了時刻 *</label>
               <input
                 type="time"
                 name="endTime"
@@ -101,7 +102,7 @@ function WorkInput() {
               />
             </div>
             <div className="form-group">
-              <label>휴식 *</label>
+              <label>休憩 *</label>
               <input
                 type="text"
                 name="breakHm"
@@ -144,15 +145,17 @@ function WorkInput() {
           </div>
 
           <button type="submit" className="primary">
-            저장
+            保存
           </button>
         </form>
       </div>
 
+      <KintaihyoImportCard />
+
       {user?.role === "ADMIN" && (
         <AttendanceImportCard
-          title="CSV/Excel Import (관리자)"
-          helperText="XLSX: A社員ID, B勤務日, C開始, D終了, E休憩(分またはH:MM例1:00), F備考(任意) — 1行目ヘッダ"
+          title="CSV/Excel 取込（管理者）"
+          helperText="XLSX: A社員ID, B勤務日, C開始, D終了, E休憩（分または H:MM 例 1:00）, F備考（任意）— 1行目ヘッダ"
         />
       )}
     </div>

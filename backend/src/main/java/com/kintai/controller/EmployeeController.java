@@ -51,22 +51,22 @@ public class EmployeeController {
         String code = req.getEmployeeCode() != null ? req.getEmployeeCode().trim() : "";
         String name = req.getEmployeeName() != null ? req.getEmployeeName().trim() : "";
         if (code.isBlank() || name.isBlank()) {
-            return ApiResponses.badRequest("직원 코드와 직원명은 필수입니다.");
+            return ApiResponses.badRequest("社員コードと氏名は必須です。");
         }
         if (code.length() > 20) {
-            return ApiResponses.badRequest("직원 코드는 20자 이하입니다.");
+            return ApiResponses.badRequest("社員コードは20文字以下です。");
         }
         if (name.length() > 50) {
-            return ApiResponses.badRequest("직원명은 50자 이하입니다.");
+            return ApiResponses.badRequest("氏名は50文字以下です。");
         }
         if (employeeRepository.existsByEmployeeCode(code)) {
-            return ApiResponses.badRequest("이미 사용 중인 직원 코드입니다.");
+            return ApiResponses.badRequest("既に使用されている社員コードです。");
         }
 
         BigDecimal hourly = Objects.requireNonNullElse(req.getHourlyCost(), BigDecimal.ZERO);
         Integer active = req.getActiveFlag() != null ? req.getActiveFlag() : 1;
         if (active != 0 && active != 1) {
-            return ApiResponses.badRequest("activeFlag는 0 또는 1이어야 합니다.");
+            return ApiResponses.badRequest("activeFlag は 0 または 1 である必要があります。");
         }
 
         Employee e = Employee.builder()

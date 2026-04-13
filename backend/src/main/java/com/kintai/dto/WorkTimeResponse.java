@@ -35,16 +35,16 @@ public class WorkTimeResponse {
 
     private Integer breakMinutes;
 
-    /** 일 실근무(분) — 집계·API 호환용 */
+    /** 日次実労働（分）— 集計・API 互換用 */
     private Integer workMinutes;
 
-    /** 실근무 当日 (H:MM) */
+    /** 実労働 当日 (H:MM) */
     private String dailyWorkHm;
 
-    /** 실근무 累計 (H:MM, 해당 월·직원 기준) */
+    /** 実労働 累計 (H:MM, 当該月・社員基準) */
     private String cumulativeWorkHm;
 
-    /** 備考 (null 이면 JSON 에서도 키를 내려 프론트가 빈 칸과 구분 가능) */
+    /** 備考（null のとき JSON でもキーを返しフロントが空欄と区別可能） */
     @JsonInclude(JsonInclude.Include.ALWAYS)
     private String remarks;
 }

@@ -19,7 +19,7 @@ function EmployeeMaster() {
     api
       .get("/employees")
       .then((r) => setRows(r.data || []))
-      .catch(() => setError("직원 목록을 불러오지 못했습니다."))
+      .catch(() => setError("従業員一覧を読み込めませんでした。"))
       .finally(() => setLoading(false));
   };
 
@@ -53,25 +53,25 @@ function EmployeeMaster() {
       });
       load();
     } catch (err) {
-      const msg = err.response?.data?.error || "등록에 실패했습니다.";
-      setError(typeof msg === "string" ? msg : "등록에 실패했습니다.");
+      const msg = err.response?.data?.error || "登録に失敗しました。";
+      setError(typeof msg === "string" ? msg : "登録に失敗しました。");
     }
   };
 
   return (
     <div className="page-container">
-      <h2 className="page-title">직원 마스터</h2>
+      <h2 className="page-title">従業員マスタ</h2>
       {error && <div className="error-msg">{error}</div>}
 
       <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}>직원 등록</h3>
+        <h3 style={{ marginTop: 0 }}>従業員登録</h3>
         <form onSubmit={onSubmit}>
           <div className="form-row">
             <input
               name="employeeCode"
               value={form.employeeCode}
               onChange={onChange}
-              placeholder="직원 코드 (예: EMP003)"
+              placeholder="社員コード（例: EMP003）"
               required
               maxLength={20}
             />
@@ -79,7 +79,7 @@ function EmployeeMaster() {
               name="employeeName"
               value={form.employeeName}
               onChange={onChange}
-              placeholder="직원명"
+              placeholder="氏名"
               required
               maxLength={50}
             />
@@ -89,7 +89,7 @@ function EmployeeMaster() {
               name="department"
               value={form.department}
               onChange={onChange}
-              placeholder="소속(선택)"
+              placeholder="所属（任意）"
               maxLength={50}
             />
             <input
@@ -99,43 +99,43 @@ function EmployeeMaster() {
               min="0"
               value={form.hourlyCost}
               onChange={onChange}
-              placeholder="시급원가(선택, 미입력 0)"
+              placeholder="時給原価（任意、未入力は0）"
             />
             <select
               name="activeFlag"
               value={form.activeFlag}
               onChange={onChange}
             >
-              <option value={1}>유효(1)</option>
-              <option value={0}>무효(0)</option>
+              <option value={1}>有効(1)</option>
+              <option value={0}>無効(0)</option>
             </select>
             <button type="submit" className="primary">
-              등록
+              登録
             </button>
           </div>
         </form>
       </div>
 
       <div className="card" style={{ overflowX: "auto" }}>
-        <h3 style={{ marginTop: 0 }}>직원 목록</h3>
+        <h3 style={{ marginTop: 0 }}>従業員一覧</h3>
         {loading ? (
-          <p>불러오는 중…</p>
+          <p>読み込み中…</p>
         ) : (
           <table className="data-table">
             <thead>
               <tr>
                 <th>ID</th>
-                <th>코드</th>
-                <th>이름</th>
-                <th>부서</th>
-                <th>시급원가</th>
-                <th>유효</th>
+                <th>コード</th>
+                <th>氏名</th>
+                <th>部署</th>
+                <th>時給原価</th>
+                <th>有効</th>
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={6}>데이터가 없습니다.</td>
+                  <td colSpan={6}>データがありません。</td>
                 </tr>
               ) : (
                 rows.map((r) => (

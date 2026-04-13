@@ -14,12 +14,12 @@ backend/bin/
 *.log
 hs_err_pid*.log
 
-# Gradle wrapper jar는 커밋 대상
+# Gradle wrapper jar はコミット対象
 !backend/gradle/wrapper/gradle-wrapper.jar
 !backend/gradle/wrapper/gradle-wrapper-shared.jar
 
-# 로컬 DB·비밀번호 (커밋하지 않음)
-backend/src/main/resources/application-local.properties
+# ローカル DB・パスワード（コミットしない）
+backend/src/main/resources/application.properties
 
 # --- Frontend (Node / Vite) ---
 frontend/node_modules/
@@ -45,10 +45,10 @@ pnpm-debug.log*
 .springBeans
 .sts4-cache
 
-# VS Code (개인 설정만 무시하려면 아래 유지)
+# VS Code（個人設定のみ無視する場合は下記を維持）
 # .vscode/
 
-# --- 기타 ---
+# --- その他 ---
 *.swp
 *.swo
 *~

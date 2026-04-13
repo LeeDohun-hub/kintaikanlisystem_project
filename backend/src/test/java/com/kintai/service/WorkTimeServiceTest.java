@@ -53,7 +53,7 @@ class WorkTimeServiceTest {
 
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> workTimeService.create(emp.getEmployeeId(), req2));
-        assertTrue(ex.getMessage().contains("중복된 근무일자"));
+        assertTrue(ex.getMessage().contains("同一勤務日"));
     }
 }
 

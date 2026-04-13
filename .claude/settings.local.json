@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(python -c ':*)",
+      "Bash(where python:*)",
+      "Bash(where python3:*)",
+      "Bash(where node:*)",
+      "Bash(node -e ':*)",
+      "Bash(dir node_modules)",
+      "Bash(findstr xlsx:*)",
+      "Bash(powershell:*)",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew compileJava --stacktrace)",
+      "Bash(./gradlew clean:*)",
+      "Bash(./gradlew compileJava --rerun-tasks)",
+      "Bash(grep -v \"^$\")",
+      "Bash(javac -version)",
+      "Bash(tasklist /FI \"IMAGENAME eq java.exe\")",
+      "Bash(tasklist)",
+      "Bash(python:*)",
+      "Bash(where py:*)",
+      "Read(//c/Users/suppo/AppData/Local/Programs/**)",
+      "Bash(mvn -f backend/pom.xml compile -q)"
+    ]
+  }
+}

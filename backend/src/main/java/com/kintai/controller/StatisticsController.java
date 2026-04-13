@@ -34,7 +34,7 @@ public class StatisticsController {
             MonthlyStatisticsResponse data = statisticsService.monthly(month);
             return ResponseEntity.ok(data);
         } catch (DateTimeParseException e) {
-            return ApiResponses.badRequest("월 형식이 올바르지 않습니다. (YYYY-MM)");
+            return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
         }
     }
 }

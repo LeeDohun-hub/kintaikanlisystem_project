@@ -25,7 +25,7 @@ public class ApiExceptionHandler {
         String msg = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage)
                 .collect(Collectors.joining(" "));
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg.isEmpty() ? "입력값을 확인하세요." : msg));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg.isEmpty() ? "入力内容をご確認ください。" : msg));
     }
 
     @ExceptionHandler(DataAccessException.class)
@@ -39,14 +39,14 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, String>> handleNotReadable(HttpMessageNotReadableException ex) {
         log.warn("Request body parse error: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                .body(Map.of("error", "요청 본문 형식이 올바르지 않습니다. 날짜·시간 형식을 확인하세요."));
+                .body(Map.of("error", "リクエスト本文の形式が正しくありません。日付・時刻形式をご確認ください。"));
     }
 
     @ExceptionHandler(HttpMessageConversionException.class)
     public ResponseEntity<Map<String, String>> handleConversion(HttpMessageConversionException ex) {
         log.error("HTTP message conversion error", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", "[직렬화] " + rootMessage(ex)));
+                .body(Map.of("error", "[シリアライズ] " + rootMessage(ex)));
     }
 
     @ExceptionHandler(Exception.class)

@@ -33,17 +33,17 @@ public class WorkTimeService {
     @Transactional
     public WorkTimeResponse create(Long userId, WorkTimeCreateRequest req) {
         if (req.getWorkDate() == null || req.getStartTime() == null || req.getEndTime() == null) {
-            throw new IllegalArgumentException("근무일, 시작·종료 시각은 필수입니다.");
+            throw new IllegalArgumentException("勤務日、開始・終了時刻は必須です。");
         }
         if (workTimeRepository.existsByEmployeeIdAndWorkDate(userId, req.getWorkDate())) {
-            throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
+            throw new IllegalArgumentException("同一勤務日のデータが既に登録されています。");
         }
         int breakMins = req.getBreakMinutes() != null ? req.getBreakMinutes() : 0;
         if (breakMins < 0 || breakMins > 24 * 60) {
-            throw new IllegalArgumentException("휴식 시간(분)이 올바르지 않습니다.");
+            throw new IllegalArgumentException("休憩時間（分）が正しくありません。");
         }
         if (!req.getStartTime().isBefore(req.getEndTime())) {
-            throw new IllegalArgumentException("시작 시각은 종료 시각보다 이전이어야 합니다.");
+            throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
         int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
@@ -69,18 +69,18 @@ public class WorkTimeService {
     @Transactional
     public WorkTimeResponse update(Long ownerEmployeeId, Long workId, WorkTimeCreateRequest req) {
         if (req.getWorkDate() == null || req.getStartTime() == null || req.getEndTime() == null) {
-            throw new IllegalArgumentException("근무일, 시작·종료 시각은 필수입니다.");
+            throw new IllegalArgumentException("勤務日、開始・終了時刻は必須です。");
         }
         WorkTime w = loadOwnedOrThrow(workId, ownerEmployeeId);
         if (workTimeRepository.existsByEmployeeIdAndWorkDateAndWorkIdNot(ownerEmployeeId, req.getWorkDate(), workId)) {
-            throw new IllegalArgumentException("기존에 중복된 근무일자 데이터가 있습니다.");
+            throw new IllegalArgumentException("同一勤務日のデータが既に登録されています。");
         }
         int breakMins = req.getBreakMinutes() != null ? req.getBreakMinutes() : 0;
         if (breakMins < 0 || breakMins > 24 * 60) {
-            throw new IllegalArgumentException("휴식 시간(분)이 올바르지 않습니다.");
+            throw new IllegalArgumentException("休憩時間（分）が正しくありません。");
         }
         if (!req.getStartTime().isBefore(req.getEndTime())) {
-            throw new IllegalArgumentException("시작 시각은 종료 시각보다 이전이어야 합니다.");
+            throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
         int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
@@ -108,9 +108,9 @@ public class WorkTimeService {
 
     private WorkTime loadOwnedOrThrow(Long workId, Long ownerEmployeeId) {
         WorkTime w = workTimeRepository.findById(workId)
-                .orElseThrow(() -> new IllegalArgumentException("근무 기록을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("勤務記録が見つかりません。"));
         if (!w.getEmployeeId().equals(ownerEmployeeId)) {
-            throw new IllegalArgumentException("본인의 근무 기록만 변경할 수 있습니다.");
+            throw new IllegalArgumentException("本人の勤務記録のみ変更できます。");
         }
         return w;
     }
@@ -151,7 +151,7 @@ public class WorkTimeService {
     private int cumulativeMinutesForDay(Long employeeId, LocalDate workDate) {
         YearMonth ym = YearMonth.from(workDate);
         LocalDate from = ym.atDay(1);
-        // 하루 1건 정책이므로, 누계는 월 시작~해당 날짜까지의 합으로 충분합니다.
+        // 1日1件方針のため、累計は月初〜当該日までの合計で足ります。
         long sum = workTimeRepository.sumWorkMinutes(employeeId, from, workDate);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
     }

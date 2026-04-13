@@ -25,26 +25,26 @@ function Dashboard() {
         setEmpCount(cnt);
         setStats(s);
       })
-      .catch(() => setError("집계를 불러오지 못했습니다."));
+      .catch(() => setError("集計を読み込めませんでした。"));
   }, [month]);
 
   return (
     <div className="page-container">
-      <h2 className="page-title">대시보드</h2>
+      <h2 className="page-title">ダッシュボード</h2>
       {error && <div className="error-msg">{error}</div>}
 
-      <MonthPickerCard label="기준 월" month={month} onChange={setMonth} />
+      <MonthPickerCard label="基準月" month={month} onChange={setMonth} />
 
       <div className="card">
         <p>
-          <strong>등록 직원 수:</strong> {empCount}명
+          <strong>登録従業員数:</strong> {empCount}名
         </p>
         {stats && (
           <pre style={{ marginTop: 12, fontSize: 13, overflow: "auto" }}>
             {JSON.stringify(stats, null, 2)}
           </pre>
         )}
-        {!stats && !error && <p>해당 월 집계 데이터가 없습니다.</p>}
+        {!stats && !error && <p>該当月の集計データがありません。</p>}
       </div>
     </div>
   );

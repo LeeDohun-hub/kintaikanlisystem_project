@@ -7,8 +7,8 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 
 /**
- * JSON 역직렬화는 Jackson JavaTimeModule 기본(ISO-8601)을 사용합니다.
- * {@code @JsonFormat(pattern = "HH:mm")} 는 "09:00:00" 등을 거부해 POST 시 500/역직렬화 오류가 날 수 있습니다.
+ * JSON 逆直列化は Jackson JavaTimeModule 既定（ISO-8601）を使用します。
+ * {@code @JsonFormat(pattern = "HH:mm")} は "09:00:00" 等を拒否し POST 時に 500/逆直列化エラーになることがあります。
  */
 @Data
 public class WorkTimeCreateRequest {
@@ -19,6 +19,6 @@ public class WorkTimeCreateRequest {
     private Integer breakMinutes;
 
     /** 備考 (任意、最大500文字) */
-    @Size(max = 500, message = "비고는 500자 이하입니다.")
+    @Size(max = 500, message = "備考は500文字以下です。")
     private String remarks;
 }

@@ -16,7 +16,7 @@ export default function AttendanceImportCard({
     setError("");
     setResult(null);
     if (!file) {
-      setError("업로드할 엑셀 파일을 선택하세요.");
+      setError("取り込む Excel ファイルを選択してください。");
       return;
     }
     setLoading(true);
@@ -24,7 +24,7 @@ export default function AttendanceImportCard({
       const res = await importAttendanceExcel(file);
       setResult(res.data);
     } catch (err) {
-      setError(getErrorMessage(err, "엑셀 업로드에 실패했습니다."));
+      setError(getErrorMessage(err, "Excel のアップロードに失敗しました。"));
     } finally {
       setLoading(false);
     }
@@ -45,7 +45,7 @@ export default function AttendanceImportCard({
               required
             />
             <button type="submit" className="primary" disabled={loading}>
-              {loading ? "처리 중…" : "가져오기"}
+              {loading ? "処理中…" : "取込"}
             </button>
           </div>
           {helperText && (
@@ -58,14 +58,19 @@ export default function AttendanceImportCard({
 
       {result && (
         <div className="card">
-          <h3 style={{ marginTop: 0 }}>결과</h3>
+          <h3 style={{ marginTop: 0 }}>結果</h3>
+          {result.successCount === 0 && (
+            <div className="error-msg" style={{ marginBottom: 12 }}>
+              登録された行がないか、すべて失敗しました。下記のエラーと列形式（A〜F）をご確認ください。
+            </div>
+          )}
           <p>
-            <strong>성공:</strong> {result.successCount}건 /{" "}
-            <strong>실패:</strong> {result.errorCount}건
+            <strong>成功:</strong> {result.successCount}件 /{" "}
+            <strong>失敗:</strong> {result.errorCount}件
           </p>
           {result.errors?.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <h4 style={{ margin: 0 }}>에러 행</h4>
+              <h4 style={{ margin: 0 }}>エラー行</h4>
               <ul>
                 {result.errors.map((e, idx) => (
                   <li key={idx}>

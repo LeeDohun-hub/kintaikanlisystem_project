@@ -11,7 +11,7 @@ public class EmployeeCreateRequest {
     private String employeeName;
     private String department;
     private BigDecimal hourlyCost;
-    /** 1: 유효, 0: 무효 */
+    /** 1: 有効, 0: 無効 */
     private Integer activeFlag;
 }
 

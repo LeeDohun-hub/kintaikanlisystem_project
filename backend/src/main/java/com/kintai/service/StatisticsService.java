@@ -56,7 +56,7 @@ public class StatisticsService {
                 .build();
     }
 
-    /** 직원용: 본인 월별 집계 */
+    /** スタッフ用：本人の月次集計 */
     public MonthlyStatisticsResponse monthlyForEmployee(String month, Long employeeId) {
         YearMonth yearMonth = YearMonth.parse(month);
         var from = yearMonth.atDay(1);

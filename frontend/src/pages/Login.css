@@ -270,7 +270,7 @@
   flex: 1;
   background: linear-gradient(145deg, #1a3a5c 0%, #5b9bd5 60%, #4ecdc4 100%);
   display: flex;
-  /* 세로(위아래)는 가운데, 가로(좌우)는 왼쪽 정렬 */
+  /* 縦は中央、横は左寄せ */
   align-items: center;
   justify-content: flex-start;
   padding: 60px 56px;

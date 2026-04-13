@@ -6,8 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * 관리자 전용 API 표시용.
- * (Spring Security를 쓰지 않는 대신 Interceptor에서 이 어노테이션을 해석합니다.)
+ * 管理者専用 API 用マーカー。
+ * （Spring Security を使わず Interceptor でこのアノテーションを解釈します。）
  */
 @Target({ElementType.METHOD, ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

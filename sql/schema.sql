@@ -1,39 +1,39 @@
 -- ============================================================================
--- 근태관리(トレーニング) 시스템 — MySQL DDL + 초기 데이터(시드)
+-- 勤怠管理（トレーニング）システム — MySQL DDL + 初期データ（シード）
 -- ----------------------------------------------------------------------------
--- 근거: 테이블 정의서(employee, work_time, batch_import_history)
--- 확장: Web 로그인용 employee_account (정의서 외, 앱 운영용)
+-- 根拠: テーブル定義書（employee, work_time, batch_import_history）
+-- 拡張: Web ログイン用 employee_account（定義書外、アプリ運用用）
 --
--- 적용 방법(예):
+-- 適用例:
 --   mysql -u root -p < sql/schema.sql
 --
--- 시드 계정 평문 비밀번호(로그인 테스트용):
+-- シードアカウントの平文パスワード（ログイン検証用）:
 --   ADMIN001 → admin123
 --   EMP001, EMP002 → pass123
--- (DB에는 BCrypt 해시만 저장됨)
+-- （DB には BCrypt ハッシュのみ保存）
 -- ============================================================================
 
--- 클라이언트·연결 문자셋을 utf8mb4로 고정 (이모지·다국어 안전)
+-- クライアント・接続文字セットを utf8mb4 に固定（絵文字・多言語対応）
 SET NAMES utf8mb4;
 
--- DROP/CREATE 순서에서 FK 위반을 피하기 위해 일시적으로 외래키 검사 끔
--- (끝에서 다시 1로 복구)
+-- DROP/CREATE の順序で FK 違反を避けるため、一時的に外部キー検査をオフ
+-- （末尾で再度 1 に戻す）
 SET FOREIGN_KEY_CHECKS = 0;
 
--- 애플리케이션 전용 DB가 없으면 생성
+-- アプリ専用 DB がなければ作成
 CREATE DATABASE IF NOT EXISTS kintai_db
   CHARACTER SET utf8mb4
   COLLATE utf8mb4_unicode_ci;
 
--- 이후 모든 DDL/DML은 이 DB 안에서 실행
+-- 以降の DDL/DML はこの DB 内で実行
 USE kintai_db;
 
 -- ----------------------------------------------------------------------------
--- 기존 테이블 제거 (의존 관계: 자식 → 부모 순)
--- batch_import_history: 다른 테이블을 참조하지 않음 → 먼저 삭제 가능
--- work_time: employee 참조
--- employee_account: employee 참조
--- employee: 마스터(부모)
+-- 既存テーブル削除（依存関係: 子 → 親の順）
+-- batch_import_history: 他テーブルを参照しない → 先に削除可
+-- work_time: employee 参照
+-- employee_account: employee 参照
+-- employee: マスタ（親）
 -- ----------------------------------------------------------------------------
 DROP TABLE IF EXISTS batch_import_history;
 DROP TABLE IF EXISTS work_time;
@@ -41,115 +41,115 @@ DROP TABLE IF EXISTS employee_account;
 DROP TABLE IF EXISTS employee;
 
 -- ============================================================================
--- 1.1 employee — 직원 마스터 (정의서 1.1 그대로)
+-- 1.1 employee — 従業員マスタ（定義書 1.1 どおり）
 -- ============================================================================
--- 한 행 = 한 명의 직원. 업무상 직원 코드(employee_code)로 식별.
+-- 1 行 = 1 名の従業員。業務上の従業員コード（employee_code）で識別。
 -- ============================================================================
 CREATE TABLE employee (
-  -- PK: 내부 식별자 (자동 증가, JPA @GeneratedValue IDENTITY 와 대응)
+  -- PK: 内部識別子（自動採番、JPA @GeneratedValue IDENTITY に対応）
   employee_id   BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 
-  -- 직원 코드: 로그인 ID로 쓰는 업무용 코드 (중복 불가, 최대 20자)
+  -- 従業員コード: ログイン ID として使う業務コード（重複不可、最大 20 文字）
   employee_code VARCHAR(20)     NOT NULL,
 
-  -- 직원 이름 (표시명)
+  -- 従業員名（表示名）
   employee_name VARCHAR(50)     NOT NULL,
 
-  -- 소속 부서/팀 (없으면 NULL)
+  -- 所属部署・チーム（なければ NULL）
   department    VARCHAR(50)     NULL,
 
-  -- 시급 원가: 손익 계산 등에 쓰는 단가(정의서상 필수)
+  -- 時間単価原価: 損益計算等に使う単価（定義書上必須）
   hourly_cost   DECIMAL(8, 2)   NOT NULL,
 
-  -- 유효 플래그: 1=재직·사용 가능, 0=무효(로그인 거부 등에 활용 가능)
+  -- 有効フラグ: 1=在籍・利用可、0=無効（ログイン拒否等に利用可）
   active_flag   TINYINT         NOT NULL DEFAULT 1 COMMENT '1:有効 0:無効',
 
-  -- 등록 일시 (행 최초 삽입 시각, 밀리초 단위)
+  -- 登録日時（行の初回挿入時刻、ミリ秒）
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-  -- 수정 일시 (행이 갱신될 때마다 자동 갱신)
+  -- 更新日時（行が更新されるたびに自動更新）
   updated_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
 
-  -- 직원 코드 유일 제약 (동일 코드로 두 명 불가)
+  -- 従業員コード一意制約（同一コードで 2 名不可）
   UNIQUE KEY uk_employee_code (employee_code),
 
-  -- 활성 직원만 조회하는 쿼리용 보조 인덱스
+  -- 有効従業員のみを取得するクエリ用補助インデックス
   KEY idx_employee_active (active_flag)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 1.x employee_account — 로그인·권한 (정의서에 없음, Web 앱 확장)
+-- 1.x employee_account — ログイン・権限（定義書になし、Web アプリ拡張）
 -- ============================================================================
--- 정의서의 employee에는 비밀번호·역할이 없으므로, 1:1로 분리 저장.
--- employee_id 가 PK 이면서 동시에 employee 를 가리키는 외래키.
+-- 定義書の employee にパスワード・ロールがないため、1:1 で分離保存。
+-- employee_id が PK かつ employee を指す外部キー。
 -- ============================================================================
 CREATE TABLE employee_account (
-  -- 직원 PK와 1:1 (계정은 직원당 하나)
+  -- 従業員 PK と 1:1（アカウントは従業員につき 1 つ）
   employee_id   BIGINT UNSIGNED NOT NULL PRIMARY KEY,
 
-  -- BCrypt 등으로 해시된 비밀번호 (평문 저장 금지)
+  -- BCrypt 等でハッシュ化したパスワード（平文保存禁止）
   password_hash VARCHAR(255)    NOT NULL COMMENT 'BCrypt',
 
-  -- ADMIN: 관리자 메뉴, EMPLOYEE: 본인 근무만
+  -- ADMIN: 管理者メニュー、EMPLOYEE: 本人勤務のみ
   role          VARCHAR(20)     NOT NULL COMMENT 'ADMIN | EMPLOYEE',
 
-  -- 직원 삭제 시 계정도 함께 삭제(고아 계정 방지)
+  -- 従業員削除時にアカウントも削除（孤児アカウント防止）
   CONSTRAINT fk_employee_account_employee FOREIGN KEY (employee_id) REFERENCES employee (employee_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 1.2 work_time — 근태 실적 (정의서 1.2 그대로)
+-- 1.2 work_time — 勤怠実績（定義書 1.2 どおり）
 -- ============================================================================
--- 한 행 = 한 직원의 하루(또는 한 건) 근무 기록.
--- employee_id 로 직원 마스터와 연결.
+-- 1 行 = 1 従業員の 1 日（または 1 件）の勤務記録。
+-- employee_id で従業員マスタと紐付け。
 -- ============================================================================
 CREATE TABLE work_time (
-  -- PK: 근태 건별 식별자
+  -- PK: 勤怠行ごとの識別子
   work_id       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
 
-  -- 근무한 직원 (employee.employee_id 참조)
+  -- 勤務した従業員（employee.employee_id 参照）
   employee_id   BIGINT UNSIGNED NOT NULL,
 
-  -- 근무일 (날짜만, 타임존은 애플리케이션에서 Asia/Seoul 등으로 통일 권장)
+  -- 勤務日（日付のみ。タイムゾーンはアプリで Asia/Tokyo 等に統一推奨）
   work_date     DATE            NOT NULL,
 
-  -- 출근 시각 (TIME, NOT NULL — 정의서상 필수)
+  -- 出勤時刻（TIME, NOT NULL — 定義書上必須）
   start_time    TIME            NOT NULL,
 
-  -- 퇴근 시각 (TIME, NOT NULL)
+  -- 退勤時刻（TIME, NOT NULL）
   end_time      TIME            NOT NULL,
 
-  -- 휴게 시간(분). 실근무 분 계산 시 차감
+  -- 休憩時間（分）。実働分計算時に減算
   break_minutes INT UNSIGNED    NOT NULL,
 
-  -- 실근무 시간(분). (종료−시작)−휴게 를 애플리케이션에서 계산해 저장하는 값
+  -- 実働時間（分）。（終了−開始）−休憩 をアプリで計算して保存する値
   work_minutes  INT UNSIGNED    NOT NULL COMMENT '実働（分）',
 
-  -- 備考 (근무표 비고)
+  -- 備考（勤務表の備考）
   remarks       VARCHAR(500)    NULL,
 
-  -- 이 행이 DB에 기록된 시각
+  -- この行が DB に記録された時刻
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 
-  -- 한 직원은 하루 1건만 입력(시간과 무관)
+  -- 1 従業員は 1 日 1 件のみ（時刻に依らない）
   UNIQUE KEY uk_work_time_emp_date (employee_id, work_date),
 
-  -- 직원별·일자별 목록 조회 최적화 (예: 한 달 조회)
+  -- 従業員別・日付別一覧取得の最適化（例: 1 か月分）
   KEY idx_work_time_emp_date (employee_id, work_date),
 
-  -- 월 단위 전 직원 조회 등에 사용
+  -- 月単位で全従業員取得などに使用
   KEY idx_work_time_month (work_date),
 
-  -- 직원 삭제 시 해당 직원의 근태 이력도 삭제
+  -- 従業員削除時に当該従業員の勤怠履歴も削除
   CONSTRAINT fk_work_time_employee FOREIGN KEY (employee_id) REFERENCES employee (employee_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================================================
--- 1.3 batch_import_history — 배치/파일取込 이력 (정의서 1.3 그대로)
+-- 1.3 batch_import_history — バッチ/ファイル取込履歴（定義書 1.3 どおり）
 -- ============================================================================
--- Excel 등 일괄 업로드 결과를 남기는 용도 (현재 앱에서 미사용이어도 스키마 유지)
+-- Excel 等の一括アップロード結果を残す用途（現アプリ未使用でもスキーマ維持）
 -- ============================================================================
 CREATE TABLE batch_import_history (
   import_id     BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -159,28 +159,28 @@ CREATE TABLE batch_import_history (
   imported_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 외래키 검사 다시 켬 (이후 INSERT 시 참조 무결성 검사)
+-- 外部キー検査を再度オン（以降の INSERT で参照整合性を検査）
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ============================================================================
--- 시드 데이터 — 개발·데모용 초기 직원 및 계정
+-- シードデータ — 開発・デモ用の初期従業員とアカウント
 -- ============================================================================
--- 1) employee 3명 삽입 (department NULL 허용, hourly_cost·active_flag 명시)
--- 2) employee_account 는 employee_code 로 직원을 찾아 employee_id 를 매칭해 삽입
---    (AUTO_INCREMENT 로 id 가 정해진 뒤이므로 SELECT 방식이 안전)
+-- 1) employee を 3 名挿入（department NULL 可、hourly_cost・active_flag 明示）
+-- 2) employee_account は employee_code で従業員を探し employee_id を突合して挿入
+--    （AUTO_INCREMENT で id が確定した後なので SELECT 方式が安全）
 -- ============================================================================
 
 INSERT INTO employee (employee_code, employee_name, department, hourly_cost, active_flag, created_at, updated_at) VALUES
-  ('ADMIN001', '시스템관리자', NULL, 5000.00, 1, NOW(3), NOW(3)),
-  ('EMP001',   '테스트직원1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
-  ('EMP002',   '테스트직원2',  NULL, 3000.00, 1, NOW(3), NOW(3));
+  ('ADMIN001', 'システム管理者', NULL, 5000.00, 1, NOW(3), NOW(3)),
+  ('EMP001',   'テスト従業員1',  NULL, 3000.00, 1, NOW(3), NOW(3)),
+  ('EMP002',   'テスト従業員2',  NULL, 3000.00, 1, NOW(3), NOW(3));
 
--- 관리자 계정: 평문 비밀번호 admin123 에 해당하는 BCrypt 해시
+-- 管理者アカウント: 平文パスワード admin123 に対応する BCrypt ハッシュ
 INSERT INTO employee_account (employee_id, password_hash, role)
 SELECT e.employee_id, '$2b$10$wyEbhn0AgE3Uy/Ndg6WyoeZIbtimGKbt91sCHgLoBv5EfkfvF9j9e', 'ADMIN'
 FROM employee e WHERE e.employee_code = 'ADMIN001';
 
--- 일반 직원 계정: 평문 비밀번호 pass123 에 해당하는 BCrypt 해시
+-- 一般従業員アカウント: 平文パスワード pass123 に対応する BCrypt ハッシュ
 INSERT INTO employee_account (employee_id, password_hash, role)
 SELECT e.employee_id, '$2b$10$qzVVIwAzyY7FceCnLjvWeezPOzC7f7oOhOg6S/GZgWTWs/XZmjwfO', 'EMPLOYEE'
 FROM employee e WHERE e.employee_code = 'EMP001';

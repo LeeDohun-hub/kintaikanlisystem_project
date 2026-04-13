@@ -56,10 +56,10 @@ public class AuthService {
     @Transactional
     public void register(RegisterRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new IllegalArgumentException("비밀번호와 비밀번호 확인이 일치하지 않습니다.");
+            throw new IllegalArgumentException("パスワードとパスワード（確認）が一致しません。");
         }
         if (employeeRepository.existsByEmployeeCode(request.getEmployeeCode().trim())) {
-            throw new IllegalArgumentException("이미 사용 중인 직원 코드입니다.");
+            throw new IllegalArgumentException("既に使用されている社員コードです。");
         }
 
         BigDecimal hourly = request.getHourlyCost() != null ? request.getHourlyCost() : BigDecimal.ZERO;
@@ -67,7 +67,7 @@ public class AuthService {
         try {
             role = Role.valueOf(request.getRole().trim().toUpperCase());
         } catch (RuntimeException ex) {
-            throw new IllegalArgumentException("역할이 올바르지 않습니다. (ADMIN 또는 EMPLOYEE)");
+            throw new IllegalArgumentException("区分が正しくありません。（ADMIN または EMPLOYEE）");
         }
 
         Employee employee = Employee.builder()

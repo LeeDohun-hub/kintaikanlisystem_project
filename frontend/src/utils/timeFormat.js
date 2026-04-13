@@ -1,4 +1,4 @@
-/** 분 단위를 근무표 표기 H:MM 으로 변환 (累計는 24시간 초과 가능) */
+/** 分を勤務表表記 H:MM に変換（累計は24時間超可） */
 export function formatMinutesAsHm(totalMinutes) {
   const m = Math.max(0, Math.floor(Number(totalMinutes) || 0));
   const h = Math.floor(m / 60);
@@ -7,8 +7,8 @@ export function formatMinutesAsHm(totalMinutes) {
 }
 
 /**
- * "H:MM" / "HH:MM" 문자열을 분으로 변환 (분 부분은 두 자리).
- * @returns {number} 분, 형식 오류 시 NaN
+ * "H:MM" / "HH:MM" 文字列を分に変換（分は2桁）。
+ * @returns {number} 分、形式エラー時は NaN
  */
 export function parseHmToMinutes(s) {
   if (s == null || typeof s !== "string") return NaN;

@@ -37,7 +37,7 @@ public class AdminOnlyInterceptor implements HandlerInterceptor {
         if (!"ADMIN".equals(user.getRole())) {
             response.setStatus(HttpStatus.FORBIDDEN.value());
             response.setContentType("application/json;charset=UTF-8");
-            response.getWriter().write("{\"error\":\"관리자만 접근할 수 있습니다.\"}");
+            response.getWriter().write("{\"error\":\"管理者のみアクセスできます。\"}");
             return false;
         }
         return true;

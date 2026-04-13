@@ -17,8 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.format.DateTimeParseException;
 
 /**
- * 713 상세설계의 API 경로(/api/attendance/...)를 제공하기 위한 컨트롤러.
- * 내부 저장 테이블은 work_time 이지만, 외부 API는 상세설계 문서의 경로를 따릅니다.
+ * 713 詳細設計の API パス（/api/attendance/...）を提供するコントローラ。
+ * 内部保存テーブルは work_time だが、外部 API は詳細設計ドキュメントのパスに従う。
  */
 @RestController
 @RequestMapping("/api/attendance")
@@ -34,7 +34,7 @@ public class AttendanceController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         if (file == null || file.isEmpty()) {
-            return ApiResponses.badRequest("엑셀 파일을 선택하세요.");
+            return ApiResponses.badRequest("Excel ファイルを選択してください。");
         }
         ImportAttendanceResponse res = attendanceImportService.importExcel(file);
         return ResponseEntity.ok(res);
@@ -48,7 +48,7 @@ public class AttendanceController {
             MonthlyStatisticsResponse data = statisticsService.monthly(month);
             return ResponseEntity.ok(data);
         } catch (DateTimeParseException e) {
-            return ApiResponses.badRequest("월 형식이 올바르지 않습니다. (YYYY-MM)");
+            return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
         }
     }
 }

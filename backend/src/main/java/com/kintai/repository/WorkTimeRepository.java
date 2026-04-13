@@ -7,10 +7,14 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 public interface WorkTimeRepository extends JpaRepository<WorkTime, Long> {
 
     boolean existsByEmployeeIdAndWorkDate(Long employeeId, LocalDate workDate);
+
+    /** 同一社員・同一勤務日が複数ある場合は最も古い work_id の1件のみ使用（取込更新用）。 */
+    Optional<WorkTime> findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(Long employeeId, LocalDate workDate);
 
     boolean existsByEmployeeIdAndWorkDateAndWorkIdNot(Long employeeId, LocalDate workDate, Long workId);
 

@@ -10,9 +10,9 @@ function WorkView() {
 
   return (
     <div className="page-container">
-      <h2 className="page-title">근무 조회 (전체)</h2>
+      <h2 className="page-title">勤務照会（全員）</h2>
 
-      <MonthPickerCard label="조회 월" month={month} onChange={setMonth} />
+      <MonthPickerCard label="表示月" month={month} onChange={setMonth} />
 
       {error && <div className="error-msg">{error}</div>}
 
@@ -33,7 +33,7 @@ function WorkView() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={8}>데이터가 없습니다.</td>
+                <td colSpan={8}>データがありません。</td>
               </tr>
             ) : (
               rows.map((r, i) => (
