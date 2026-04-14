@@ -4,16 +4,18 @@ import { useAuth } from "../context/AuthContext";
 import "./Layout.css";
 
 const EMPLOYEE_NAV = [
-  { to: "/work-input", label: "勤務入力" },
-  { to: "/work-history", label: "勤務履歴" },
+  { to: "/menu", label: "メニュー" },
+  { to: "/work-input", label: "勤怠入力" },
+  { to: "/upload", label: "EXCELアップロード" },
+  { to: "/report", label: "PDF出力" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/dashboard", label: "ダッシュボード" },
-  { to: "/work-view", label: "勤務照会" },
-  { to: "/statistics", label: "統計" },
-  { to: "/employees", label: "従業員マスタ" },
-  { to: "/attendance-import", label: "Excel 取込" },
+  { to: "/menu", label: "メニュー" },
+  { to: "/employees", label: "社員マスタ入力" },
+  { to: "/work-input", label: "勤怠入力" },
+  { to: "/upload", label: "EXCELアップロード" },
+  { to: "/report", label: "PDF出力" },
 ];
 
 function Layout() {

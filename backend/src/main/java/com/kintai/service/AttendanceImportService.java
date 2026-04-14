@@ -12,12 +12,20 @@ import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.ss.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVParser;
+import org.apache.commons.csv.CSVRecord;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -378,6 +386,11 @@ public class AttendanceImportService {
         int inserted = 0;
         int updated = 0;
 
+        String originalName = file != null ? file.getOriginalFilename() : null;
+        if (originalName != null && originalName.toLowerCase().endsWith(".csv")) {
+            return importKintaihyoCsv(file, employeeId);
+        }
+
         try (InputStream in = file.getInputStream(); Workbook wb = WorkbookFactory.create(in)) {
             Sheet sheet = wb.getNumberOfSheets() > 0 ? wb.getSheetAt(0) : null;
             if (sheet == null) {
@@ -497,6 +510,454 @@ public class AttendanceImportService {
                 .updatedExistingDays(updated)
                 .errors(errors)
                 .build();
+    }
+
+    private static final String MSG_KINTAIHYO_CSV_NO_ROWS =
+            "登録された勤務がありません。CSV は UTF-8、1行目ヘッダ付きで、少なくとも 日付/開始/終了 の列が必要です。"
+                    + "（列名例: workDate,startTime,endTime,breakMinutes,remarks）";
+
+    /**
+     * 勤務表（CSV, UTF-8, ヘッダあり）のインポート。
+     * - employeeId はセッションのログインユーザーを使用
+     * - 同一 employeeId + work_date が既にある場合は行を更新、無ければ新規挿入
+     * - 日付/時刻は固定フォーマットではないため複数パターンを許容（例: 2026-04-01 / 2026/4/1 / 20260401, 9:00 / 0900）
+     */
+    @Transactional
+    protected ImportAttendanceResponse importKintaihyoCsv(MultipartFile file, Long employeeId) {
+        log.info("[KINTAIHYO-CSV] start fileName={}, employeeId={}", file != null ? file.getOriginalFilename() : null, employeeId);
+
+        List<ImportAttendanceResponse.RowError> errors = new ArrayList<>();
+        // 同一勤務日が CSV 内で複数回出た場合は「後勝ち」で upsert したいので、日付単位で保持する
+        java.util.Map<LocalDate, WorkTime> pendingInsertsByDate = new java.util.HashMap<>();
+        int inserted = 0;
+        int updated = 0;
+
+        try {
+            byte[] bytes = file.getBytes();
+            CharsetDecoder dec = StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(CodingErrorAction.REPORT);
+
+            try (
+                    InputStream in = new ByteArrayInputStream(bytes);
+                    InputStreamReader reader = new InputStreamReader(in, dec);
+                    CSVParser parser = CSVFormat.DEFAULT
+                            .builder()
+                            // ヘッダ2段（例: 実働時間 の下に 当日/累計）を CSV で表現すると
+                            // 1行目/2行目がヘッダとして存在するため、ここでは自前でヘッダ行を解釈する。
+                            .setTrim(true)
+                            .setIgnoreSurroundingSpaces(true)
+                            .setIgnoreEmptyLines(true)
+                            .build()
+                            .parse(reader)
+            ) {
+                List<CSVRecord> records = parser.getRecords();
+                if (records.isEmpty()) {
+                    throw new IllegalArgumentException("CSV の内容が空です。");
+                }
+
+                HeaderInfo header = analyzeHeader(records);
+                HeaderIndex idx = resolveKintaihyoCsvHeader(header.names());
+
+                int dataStart = header.headerStartRow() + header.headerRows();
+                int rowNum = dataStart; // 1-based line number (roughly)
+                for (int i = dataStart; i < records.size(); i++) {
+                    CSVRecord rec = records.get(i);
+                    rowNum = i + 1; // 1-based line number in CSV (roughly)
+                    try {
+                        String dateRaw = safeGet(rec, idx.workDate);
+                        String startRaw = safeGet(rec, idx.startTime);
+                        String endRaw = safeGet(rec, idx.endTime);
+                        String breakRaw = idx.breakMinutes >= 0 ? safeGet(rec, idx.breakMinutes) : null;
+                        String remarksRaw = idx.remarks >= 0 ? safeGet(rec, idx.remarks) : null;
+
+                        // Excel 勤務表と同様: 出勤・退勤が空の行はスキップ
+                        if ((startRaw == null || startRaw.isBlank()) && (endRaw == null || endRaw.isBlank())) {
+                            continue;
+                        }
+
+                        LocalDate workDate = parseKintaihyoCsvDate(dateRaw, header.year());
+                        if (workDate == null) {
+                            throw new IllegalArgumentException("日付の形式が正しくありません。");
+                        }
+                        LocalTime start = parseFlexibleTime(startRaw);
+                        LocalTime end = parseFlexibleTime(endRaw);
+                        if (start == null || end == null) {
+                            throw new IllegalArgumentException("開始/終了時刻の形式が正しくありません。");
+                        }
+                        if (!start.isBefore(end)) {
+                            throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
+                        }
+
+                        int breakMinutes = parseFlexibleBreakMinutes(breakRaw);
+                        if (breakMinutes < 0 || breakMinutes > 24 * 60) {
+                            throw new IllegalArgumentException("休憩（分）は0以上1440以下である必要があります。");
+                        }
+
+                        String remarks = truncateRemarks(remarksRaw);
+                        int workMinutes = computeWorkMinutes(start, end, breakMinutes);
+
+                        Optional<WorkTime> existing =
+                                workTimeRepository.findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(employeeId, workDate);
+                        if (existing.isPresent()) {
+                            WorkTime w = existing.get();
+                            w.setStartTime(start);
+                            w.setEndTime(end);
+                            w.setBreakMinutes(breakMinutes);
+                            w.setWorkMinutes(workMinutes);
+                            w.setRemarks(remarks);
+                            updated++;
+                        } else {
+                            WorkTime pending = pendingInsertsByDate.get(workDate);
+                            if (pending != null) {
+                                // 同一ファイル内の重複日は「更新」として扱う（最後の行で上書き）
+                                pending.setStartTime(start);
+                                pending.setEndTime(end);
+                                pending.setBreakMinutes(breakMinutes);
+                                pending.setWorkMinutes(workMinutes);
+                                pending.setRemarks(remarks);
+                                updated++;
+                            } else {
+                                pendingInsertsByDate.put(workDate, WorkTime.builder()
+                                    .employeeId(employeeId)
+                                    .workDate(workDate)
+                                    .startTime(start)
+                                    .endTime(end)
+                                    .breakMinutes(breakMinutes)
+                                    .workMinutes(workMinutes)
+                                    .remarks(remarks)
+                                    .build());
+                                inserted++;
+                            }
+                        }
+                    } catch (RuntimeException ex) {
+                        errors.add(ImportAttendanceResponse.RowError.builder()
+                                .row(rowNum)
+                                .message(ex.getMessage() != null ? ex.getMessage() : "行処理エラー")
+                                .build());
+                    }
+                }
+
+                int applied = inserted + updated;
+                if (applied == 0 && errors.isEmpty()) {
+                    errors.add(ImportAttendanceResponse.RowError.builder()
+                            .row(0)
+                            .message(MSG_KINTAIHYO_CSV_NO_ROWS)
+                            .build());
+                }
+                if (!pendingInsertsByDate.isEmpty()) {
+                    workTimeRepository.saveAll(pendingInsertsByDate.values());
+                }
+            }
+        } catch (IllegalArgumentException ex) {
+            errors.add(ImportAttendanceResponse.RowError.builder()
+                    .row(0)
+                    .message(ex.getMessage() != null ? ex.getMessage() : "CSV 形式が正しくありません。")
+                    .build());
+        } catch (Exception ex) {
+            log.error("[KINTAIHYO-CSV] failed", ex);
+            errors.add(ImportAttendanceResponse.RowError.builder()
+                    .row(0)
+                    .message(friendlyUnexpectedImportMessage(ex))
+                    .build());
+        }
+
+        int errorCount = errors.size();
+        batchImportHistoryRepository.save(BatchImportHistory.builder()
+                .fileName(file != null ? safeFileName(file.getOriginalFilename()) : "unknown")
+                .status(errorCount == 0 ? "SUCCESS" : "ERROR")
+                .errorMessage(errorCount == 0 ? null : "errorCount=" + errorCount)
+                .build());
+
+        int appliedTotal = inserted + updated;
+        log.info("[KINTAIHYO-CSV] end inserted={}, updated={}, errors={}", inserted, updated, errorCount);
+        return ImportAttendanceResponse.builder()
+                .successCount(appliedTotal)
+                .errorCount(errorCount)
+                .updatedExistingDays(updated)
+                .errors(errors)
+                .build();
+    }
+
+    private record HeaderInfo(int headerStartRow, int headerRows, List<String> names, Integer year) {}
+
+    private record HeaderIndex(
+            int workDate,
+            int startTime,
+            int endTime,
+            int breakMinutes,
+            int remarks,
+            List<String> workDateNames,
+            List<String> startTimeNames,
+            List<String> endTimeNames,
+            List<String> breakNames,
+            List<String> remarksNames
+    ) {}
+
+    private static HeaderIndex resolveKintaihyoCsvHeader(List<String> headerNames) {
+        // canonical names + japanese variants
+        List<String> date = List.of("workdate", "work_date", "date", "勤務日", "日付", "月日");
+        List<String> start = List.of("starttime", "start_time", "start", "始業", "開始", "出勤", "始業時刻", "開始時刻");
+        List<String> end = List.of("endtime", "end_time", "end", "終業", "終了", "退勤", "終業時刻", "終了時刻");
+        List<String> br = List.of("breakminutes", "break_minutes", "break", "休憩", "休憩分", "休憩時間", "休憩時刻");
+        List<String> rem = List.of("remarks", "remark", "memo", "備考", "メモ", "コメント");
+
+        int dateIdx = findHeaderIndex(headerNames, date);
+        int startIdx = findHeaderIndex(headerNames, start);
+        int endIdx = findHeaderIndex(headerNames, end);
+        int breakIdx = findHeaderIndex(headerNames, br);
+        int remarksIdx = findHeaderIndex(headerNames, rem);
+
+        if (dateIdx < 0 || startIdx < 0 || endIdx < 0) {
+            throw new IllegalArgumentException(
+                    "CSV のヘッダに必要な列がありません。必須: 日付/開始/終了（例: workDate,startTime,endTime）");
+        }
+        return new HeaderIndex(dateIdx, startIdx, endIdx, breakIdx, remarksIdx, date, start, end, br, rem);
+    }
+
+    private static int findHeaderIndex(List<String> headerNames, List<String> candidates) {
+        if (headerNames == null || headerNames.isEmpty()) return -1;
+        for (int i = 0; i < headerNames.size(); i++) {
+            String nk = normalizeHeaderKey(headerNames.get(i));
+            for (String c : candidates) {
+                if (nk.equalsIgnoreCase(normalizeHeaderKey(c))) {
+                    return i;
+                }
+            }
+        }
+        return -1;
+    }
+
+    private static String normalizeHeaderKey(String s) {
+        if (s == null) return "";
+        return s.trim()
+                .replace("\uFEFF", "") // BOM
+                .replaceAll("[\\s_\\-]", "")
+                .toLowerCase();
+    }
+
+    private static HeaderInfo analyzeHeader(List<CSVRecord> records) {
+        Integer year = extractYearFromRecords(records);
+
+        int headerStart = findHeaderStartRow(records);
+        if (headerStart < 0) {
+            // fallback: treat first row as header
+            headerStart = 0;
+        }
+
+        CSVRecord r0 = records.get(headerStart);
+        CSVRecord r1 = (records.size() > headerStart + 1) ? records.get(headerStart + 1) : null;
+
+        boolean hasTwoRowHeader = false;
+        if (r1 != null) {
+            String row1 = joinRowForProbe(r1);
+            String row0 = joinRowForProbe(r0);
+            hasTwoRowHeader = (row1.contains("当日") || row1.contains("累計")) && row0.contains("実働");
+        }
+
+        int cols = r0.size();
+        List<String> names = new ArrayList<>(cols);
+        for (int i = 0; i < cols; i++) {
+            String h1 = safeGet(r0, i);
+            String h2 = (hasTwoRowHeader && r1 != null) ? safeGet(r1, i) : null;
+            String name = (h1 != null && !h1.isBlank()) ? h1 : (h2 != null && !h2.isBlank() ? h2 : ("col" + i));
+            names.add(name);
+        }
+        return new HeaderInfo(headerStart, hasTwoRowHeader ? 2 : 1, names, year);
+    }
+
+    private static String joinRowForProbe(CSVRecord r) {
+        if (r == null) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < r.size(); i++) {
+            String v = r.get(i);
+            if (v != null) sb.append(v.trim());
+        }
+        return sb.toString();
+    }
+
+    private static Integer extractYearFromRecords(List<CSVRecord> records) {
+        int limit = Math.min(30, records.size());
+        for (int i = 0; i < limit; i++) {
+            CSVRecord r = records.get(i);
+            for (int c = 0; c < r.size(); c++) {
+                String v = safeGet(r, c);
+                if (v == null) continue;
+                Matcher m = YEAR_PATTERN.matcher(v);
+                if (m.find()) {
+                    try {
+                        return Integer.parseInt(m.group(1));
+                    } catch (RuntimeException ignored) {
+                        // continue
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    private static int findHeaderStartRow(List<CSVRecord> records) {
+        // try to locate a row that contains date/start/end keywords (e.g. 月日, 始業時刻, 終業時刻)
+        List<String> mustHaveAny = List.of("月日", "勤務日", "日付", "workDate", "work_date", "date");
+        List<String> startAny = List.of("始業時刻", "開始時刻", "始業", "開始", "出勤", "startTime", "start_time", "start");
+        List<String> endAny = List.of("終業時刻", "終了時刻", "終業", "終了", "退勤", "endTime", "end_time", "end");
+
+        int limit = Math.min(30, records.size());
+        for (int i = 0; i < limit; i++) {
+            CSVRecord r = records.get(i);
+            boolean hasDate = rowHasAnyHeaderToken(r, mustHaveAny);
+            boolean hasStart = rowHasAnyHeaderToken(r, startAny);
+            boolean hasEnd = rowHasAnyHeaderToken(r, endAny);
+            if (hasDate && hasStart && hasEnd) return i;
+        }
+        return -1;
+    }
+
+    private static boolean rowHasAnyHeaderToken(CSVRecord r, List<String> tokens) {
+        if (r == null || tokens == null) return false;
+        for (int c = 0; c < r.size(); c++) {
+            String v = safeGet(r, c);
+            if (v == null || v.isBlank()) continue;
+            String nv = normalizeHeaderKey(v);
+            for (String t : tokens) {
+                if (nv.equalsIgnoreCase(normalizeHeaderKey(t))) return true;
+            }
+        }
+        return false;
+    }
+
+    private static LocalDate parseKintaihyoCsvDate(String raw, Integer yearFromFile) {
+        if (raw == null) return null;
+        String s = raw.trim().replace("\uFEFF", "");
+        if (s.isBlank()) return null;
+
+        // Prefer existing flexible parsers first (YYYY-MM-DD, YYYY/M/D, YYYYMMDD)
+        LocalDate d = parseFlexibleDate(s);
+        if (d != null) return d;
+
+        // Handle "4月1日(金)" / "4月1日" without a year using extracted year (or current year fallback)
+        int y = (yearFromFile != null) ? yearFromFile : LocalDate.now().getYear();
+        // strip day-of-week in parentheses if exists
+        String cleaned = s.replaceAll("\\(.*?\\)", "");
+        LocalDate kd = parseKintaihyoDate(cleaned, y);
+        if (kd != null) return kd;
+
+        return null;
+    }
+
+    private static String safeGet(CSVRecord rec, int idx) {
+        if (idx < 0) return null;
+        try {
+            String v = rec.get(idx);
+            return v != null ? v.trim() : null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String safeGetAny(CSVRecord rec, List<String> names) {
+        if (names == null) return null;
+        for (String n : names) {
+            try {
+                if (rec.isMapped(n)) {
+                    String v = rec.get(n);
+                    if (v != null && !v.trim().isEmpty()) return v.trim();
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
+    private static LocalDate parseFlexibleDate(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+        s = s.replace("\uFEFF", "");
+
+        // YYYYMMDD
+        if (s.matches("^\\d{8}$")) {
+            try {
+                int y = Integer.parseInt(s.substring(0, 4));
+                int m = Integer.parseInt(s.substring(4, 6));
+                int d = Integer.parseInt(s.substring(6, 8));
+                return LocalDate.of(y, m, d);
+            } catch (RuntimeException ignored) {
+                return null;
+            }
+        }
+
+        // allow separators: -, /, .
+        String normalized = s.replace('.', '/').replace('-', '/');
+        // try yyyy/M/d
+        try {
+            DateTimeFormatter f = DateTimeFormatter.ofPattern("yyyy/M/d");
+            return LocalDate.parse(normalized, f);
+        } catch (DateTimeParseException ignored) {
+        }
+        // try ISO yyyy-MM-dd
+        try {
+            return LocalDate.parse(s, DateTimeFormatter.ISO_LOCAL_DATE);
+        } catch (DateTimeParseException ignored) {
+        }
+        return null;
+    }
+
+    private static LocalTime parseFlexibleTime(String raw) {
+        if (raw == null) return null;
+        String s = raw.trim();
+        if (s.isEmpty()) return null;
+        s = s.replace("\uFEFF", "");
+
+        // HHmm / Hmm
+        if (s.matches("^\\d{3,4}$")) {
+            try {
+                int v = Integer.parseInt(s);
+                int h = v / 100;
+                int m = v % 100;
+                if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+                return LocalTime.of(h, m);
+            } catch (RuntimeException ignored) {
+                return null;
+            }
+        }
+
+        // H:mm / HH:mm / HH:mm:ss
+        if (s.matches("^\\d{1,2}:\\d{2}(:\\d{2})?$")) {
+            try {
+                if (s.length() == 5) {
+                    return LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm"));
+                }
+                if (s.matches("^\\d{1,2}:\\d{2}$")) {
+                    return LocalTime.parse(String.format("%02d:%s", Integer.parseInt(s.split(":")[0]), s.split(":")[1]),
+                            DateTimeFormatter.ofPattern("HH:mm"));
+                }
+                return LocalTime.parse(s);
+            } catch (RuntimeException ignored) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    private static int parseFlexibleBreakMinutes(String raw) {
+        if (raw == null || raw.trim().isEmpty()) return 0;
+        String s = raw.trim();
+        s = s.replace("\uFEFF", "");
+        if (s.matches("^\\d+:\\d{2}$")) {
+            String[] p = s.split(":");
+            int h = Integer.parseInt(p[0]);
+            int m = Integer.parseInt(p[1]);
+            return h * 60 + m;
+        }
+        if (s.matches("^\\d+$")) {
+            return Integer.parseInt(s);
+        }
+        // allow decimal like "60.0"
+        if (s.matches("^\\d+\\.\\d+$")) {
+            return (int) Math.round(Double.parseDouble(s));
+        }
+        throw new IllegalArgumentException("休憩の形式が正しくありません。（分 または H:MM）");
     }
 
     private static final Pattern YEAR_PATTERN  = Pattern.compile("(\\d{4})年");

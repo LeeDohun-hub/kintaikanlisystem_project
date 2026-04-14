@@ -66,6 +66,112 @@ public class WorkTimeService {
         return WorkTimeMapper.toResponse(persisted, emp, cumulative);
     }
 
+    /**
+     * 월간 표 입력(여러 날짜)을 한 번에 반영.
+     * - overwriteExisting=true: 동일 날짜가 있으면 업데이트(상書き)
+     * - overwriteExisting=false: 동일 날짜가 있으면 에러로 처리
+     *
+     * 부분 성공을 허용하며, 행별 오류를 수집하여 반환합니다.
+     */
+    @Transactional
+    public com.kintai.dto.ImportAttendanceResponse bulkUpsert(
+            Long userId,
+            List<WorkTimeCreateRequest> items,
+            boolean overwriteExisting
+    ) {
+        var errors = new ArrayList<com.kintai.dto.ImportAttendanceResponse.RowError>();
+        int inserted = 0;
+        int updated = 0;
+
+        if (items == null || items.isEmpty()) {
+            errors.add(com.kintai.dto.ImportAttendanceResponse.RowError.builder()
+                    .row(0)
+                    .message("items が空です。")
+                    .build());
+            return com.kintai.dto.ImportAttendanceResponse.builder()
+                    .successCount(0)
+                    .errorCount(errors.size())
+                    .updatedExistingDays(0)
+                    .errors(errors)
+                    .build();
+        }
+
+        List<WorkTime> toInsert = new ArrayList<>();
+
+        for (int i = 0; i < items.size(); i++) {
+            WorkTimeCreateRequest req = items.get(i);
+            int rowNo = i + 1; // 1-based
+            try {
+                if (req == null) {
+                    throw new IllegalArgumentException("行データが空です。");
+                }
+                if (req.getWorkDate() == null || req.getStartTime() == null || req.getEndTime() == null) {
+                    throw new IllegalArgumentException("勤務日、開始・終了時刻は必須です。");
+                }
+
+                int breakMins = req.getBreakMinutes() != null ? req.getBreakMinutes() : 0;
+                if (breakMins < 0 || breakMins > 24 * 60) {
+                    throw new IllegalArgumentException("休憩時間（分）が正しくありません。");
+                }
+                if (!req.getStartTime().isBefore(req.getEndTime())) {
+                    throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
+                }
+
+                String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
+                if (remarks != null && remarks.isEmpty()) {
+                    remarks = null;
+                }
+                if (remarks != null && remarks.length() > 500) {
+                    throw new IllegalArgumentException("備考は500文字以下です。");
+                }
+
+                int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
+
+                var existing = workTimeRepository.findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(userId, req.getWorkDate());
+                if (existing.isPresent()) {
+                    if (!overwriteExisting) {
+                        throw new IllegalArgumentException("同一勤務日のデータが既に登録されています。");
+                    }
+                    WorkTime w = existing.get();
+                    w.setStartTime(req.getStartTime());
+                    w.setEndTime(req.getEndTime());
+                    w.setBreakMinutes(breakMins);
+                    w.setWorkMinutes(workMins);
+                    w.setRemarks(remarks);
+                    updated++;
+                } else {
+                    toInsert.add(WorkTime.builder()
+                            .employeeId(userId)
+                            .workDate(req.getWorkDate())
+                            .startTime(req.getStartTime())
+                            .endTime(req.getEndTime())
+                            .breakMinutes(breakMins)
+                            .workMinutes(workMins)
+                            .remarks(remarks)
+                            .build());
+                    inserted++;
+                }
+            } catch (RuntimeException ex) {
+                errors.add(com.kintai.dto.ImportAttendanceResponse.RowError.builder()
+                        .row(rowNo)
+                        .message(ex.getMessage() != null ? ex.getMessage() : "行処理エラー")
+                        .build());
+            }
+        }
+
+        if (!toInsert.isEmpty()) {
+            workTimeRepository.saveAll(toInsert);
+        }
+
+        int success = inserted + updated;
+        return com.kintai.dto.ImportAttendanceResponse.builder()
+                .successCount(success)
+                .errorCount(errors.size())
+                .updatedExistingDays(updated)
+                .errors(errors)
+                .build();
+    }
+
     @Transactional
     public WorkTimeResponse update(Long ownerEmployeeId, Long workId, WorkTimeCreateRequest req) {
         if (req.getWorkDate() == null || req.getStartTime() == null || req.getEndTime() == null) {
@@ -116,13 +222,25 @@ public class WorkTimeService {
     }
 
     public List<WorkTimeResponse> listByMonth(String month, LoginResponse user) {
+        return listByMonth(month, user, null);
+    }
+
+    /**
+     * 管理者用: employeeIdFilter を指定すると、対象社員のみ返します。
+     * 一般社員は employeeIdFilter を無視し本人分のみ返します。
+     */
+    public List<WorkTimeResponse> listByMonth(String month, LoginResponse user, Long employeeIdFilter) {
         YearMonth yearMonth = YearMonth.parse(month);
         var from = yearMonth.atDay(1);
         var to = yearMonth.atEndOfMonth();
 
         List<WorkTime> list;
         if ("ADMIN".equals(user.getRole())) {
-            list = workTimeRepository.findForMonth(from, to);
+            if (employeeIdFilter != null) {
+                list = workTimeRepository.findForEmployeeMonth(employeeIdFilter, from, to);
+            } else {
+                list = workTimeRepository.findForMonth(from, to);
+            }
         } else {
             list = workTimeRepository.findForEmployeeMonth(user.getId(), from, to);
         }
@@ -144,6 +262,26 @@ public class WorkTimeService {
             int daily = w.getWorkMinutes() != null ? w.getWorkMinutes() : 0;
             int cum = cumulativeByEmployee.merge(w.getEmployeeId(), daily, Integer::sum);
             out.add(WorkTimeMapper.toResponse(w, empMap.get(w.getEmployeeId()), cum));
+        }
+        return out;
+    }
+
+    /**
+     * PDF 等で特定社員のみ必要な場合に使用。
+     */
+    public List<WorkTimeResponse> listForEmployeeMonth(String month, Long employeeId) {
+        YearMonth yearMonth = YearMonth.parse(month);
+        var from = yearMonth.atDay(1);
+        var to = yearMonth.atEndOfMonth();
+        List<WorkTime> list = workTimeRepository.findForEmployeeMonth(employeeId, from, to);
+
+        Employee emp = employeeRepository.findById(employeeId).orElse(null);
+        Map<Long, Integer> cumulativeByEmployee = new HashMap<>();
+        List<WorkTimeResponse> out = new ArrayList<>();
+        for (WorkTime w : list) {
+            int daily = w.getWorkMinutes() != null ? w.getWorkMinutes() : 0;
+            int cum = cumulativeByEmployee.merge(employeeId, daily, Integer::sum);
+            out.add(WorkTimeMapper.toResponse(w, emp, cum));
         }
         return out;
     }

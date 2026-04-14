@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api/api";
+import BackToMenuLink from "../../components/BackToMenuLink";
 
 function EmployeeMaster() {
   const [rows, setRows] = useState([]);
@@ -153,6 +154,8 @@ function EmployeeMaster() {
           </table>
         )}
       </div>
+
+      <BackToMenuLink />
     </div>
   );
 }

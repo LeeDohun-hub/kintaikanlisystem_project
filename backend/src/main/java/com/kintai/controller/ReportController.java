@@ -42,17 +42,29 @@ public class ReportController {
     private final WorkTimeService workTimeService;
 
     @GetMapping(value = "/monthly.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<?> monthlyPdf(@RequestParam("month") String month, HttpSession session) {
+    public ResponseEntity<?> monthlyPdf(
+            @RequestParam("month") String month,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            HttpSession session
+    ) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
 
         MonthlyStatisticsResponse data;
         List<WorkTimeResponse> detailLines;
         try {
-            data = "ADMIN".equals(user.getRole())
-                    ? statisticsService.monthly(month)
-                    : statisticsService.monthlyForEmployee(month, user.getId());
-            detailLines = workTimeService.listByMonth(month, user);
+            if ("ADMIN".equals(user.getRole())) {
+                if (employeeId != null) {
+                    data = statisticsService.monthlyForEmployee(month, employeeId);
+                    detailLines = workTimeService.listForEmployeeMonth(month, employeeId);
+                } else {
+                    data = statisticsService.monthly(month);
+                    detailLines = workTimeService.listByMonth(month, user);
+                }
+            } else {
+                data = statisticsService.monthlyForEmployee(month, user.getId());
+                detailLines = workTimeService.listByMonth(month, user);
+            }
         } catch (DateTimeParseException e) {
             return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
         }

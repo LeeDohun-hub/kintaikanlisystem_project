@@ -49,7 +49,7 @@ function Login() {
       } catch {
         /* ignore */
       }
-      navigate(user.role === "ADMIN" ? "/dashboard" : "/work-input");
+      navigate("/menu");
     } catch {
       setError("スタッフコードまたはパスワードが正しくありません。");
     } finally {

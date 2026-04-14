@@ -10,6 +10,9 @@ import WorkView from "./pages/admin/WorkView";
 import Statistics from "./pages/admin/Statistics";
 import EmployeeMaster from "./pages/admin/EmployeeMaster";
 import AttendanceImport from "./pages/admin/AttendanceImport";
+import MainMenu from "./pages/MainMenu";
+import Upload from "./pages/Upload";
+import ReportOutput from "./pages/ReportOutput";
 import Layout from "./components/Layout";
 import LoadingSpinner from "./components/LoadingSpinner";
 
@@ -27,9 +30,7 @@ function AppRoutes() {
   if (loading) return <LoadingSpinner />;
 
   const defaultPath = user
-    ? user.role === "ADMIN"
-      ? "/dashboard"
-      : "/work-input"
+    ? "/menu"
     : "/login";
 
   return (
@@ -52,8 +53,11 @@ function AppRoutes() {
           </PrivateRoute>
         }
       >
+        <Route path="menu" element={<MainMenu />} />
         <Route path="work-input" element={<WorkInput />} />
         <Route path="work-history" element={<WorkHistory />} />
+        <Route path="upload" element={<Upload />} />
+        <Route path="report" element={<ReportOutput />} />
         <Route
           path="dashboard"
           element={

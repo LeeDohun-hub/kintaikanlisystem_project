@@ -10,7 +10,7 @@ function uploadFileChangedMessage(err) {
   return null;
 }
 
-export default function KintaihyoImportCard() {
+export default function KintaihyoImportCard({ employeeId }) {
   /** アップロード直前にメモリへ固定したコピー — 保存後にディスクのみ変わった場合でも送信可能 */
   const [fileSnapshot, setFileSnapshot] = useState(null);
   const [result, setResult] = useState(null);
@@ -30,7 +30,9 @@ export default function KintaihyoImportCard() {
       const blob = new Blob([ab], {
         type:
           f.type ||
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          (f.name?.toLowerCase().endsWith(".csv")
+            ? "text/csv"
+            : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"),
       });
       setFileSnapshot({ blob, name: f.name });
     } catch {
@@ -46,12 +48,16 @@ export default function KintaihyoImportCard() {
     setError("");
     setResult(null);
     if (!fileSnapshot) {
-      setError("勤務表ファイル（.xlsx）を選択してください。");
+      setError("勤務表ファイル（.xlsx / .csv）を選択してください。");
       return;
     }
     setLoading(true);
     try {
-      const res = await importKintaihyo(fileSnapshot.blob, fileSnapshot.name);
+      const res = await importKintaihyo(
+        fileSnapshot.blob,
+        fileSnapshot.name,
+        employeeId,
+      );
       setResult(res.data);
     } catch (err) {
       const hint = uploadFileChangedMessage(err);
@@ -74,7 +80,7 @@ export default function KintaihyoImportCard() {
           <div className="form-row" style={{ alignItems: "center", gap: 12 }}>
             <input
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               onChange={onFileChange}
               required
             />
@@ -89,7 +95,7 @@ export default function KintaihyoImportCard() {
             </p>
           )}
           <p style={{ marginTop: 10, fontSize: 13, color: "#666" }}>
-            202604_勤務表(氏名).xlsx 形式のファイルを選択し、「保存」を押してください。
+            202604_勤務表(氏名).xlsx 形式、または CSV（UTF-8, ヘッダあり）のファイルを選択し、「保存」を押してください。
             出勤・退勤が入力されている日のみ勤務履歴に登録されます。同一勤務日のデータがある場合は、Excel
             の内容で上書き更新します。
           </p>

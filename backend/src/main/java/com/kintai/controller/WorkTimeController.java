@@ -2,6 +2,7 @@ package com.kintai.controller;
 
 import com.kintai.dto.ImportAttendanceResponse;
 import com.kintai.dto.LoginResponse;
+import com.kintai.dto.WorkTimeBulkRequest;
 import com.kintai.dto.WorkTimeCreateRequest;
 import com.kintai.dto.WorkTimeResponse;
 import com.kintai.service.AttendanceImportService;
@@ -26,14 +27,26 @@ public class WorkTimeController {
     private final WorkTimeService workTimeService;
     private final AttendanceImportService attendanceImportService;
 
+    private static Long targetEmployeeId(LoginResponse user, Long employeeIdParam) {
+        if (user == null) return null;
+        if ("ADMIN".equals(user.getRole()) && employeeIdParam != null) {
+            return employeeIdParam;
+        }
+        return user.getId();
+    }
+
     @GetMapping
-    public ResponseEntity<?> list(@RequestParam("month") String month, HttpSession session) {
+    public ResponseEntity<?> list(
+            @RequestParam("month") String month,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            HttpSession session
+    ) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
         }
         try {
-            List<WorkTimeResponse> rows = workTimeService.listByMonth(month, user);
+            List<WorkTimeResponse> rows = workTimeService.listByMonth(month, user, employeeId);
             return ResponseEntity.ok(rows);
         } catch (DateTimeParseException e) {
             return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
@@ -41,14 +54,43 @@ public class WorkTimeController {
     }
 
     @PostMapping
-    public ResponseEntity<?> create(@Valid @RequestBody WorkTimeCreateRequest request, HttpSession session) {
+    public ResponseEntity<?> create(
+            @Valid @RequestBody WorkTimeCreateRequest request,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            HttpSession session
+    ) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
         }
         try {
-            WorkTimeResponse saved = workTimeService.create(user.getId(), request);
+            Long targetId = targetEmployeeId(user, employeeId);
+            WorkTimeResponse saved = workTimeService.create(targetId, request);
             return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    /**
+     * 월간 표 입력(여러 날짜)을 한 번에 저장/상書き.
+     */
+    @PostMapping("/bulk")
+    public ResponseEntity<?> bulk(
+            @Valid @RequestBody WorkTimeBulkRequest request,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            HttpSession session
+    ) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            Long targetId = targetEmployeeId(user, employeeId);
+            ImportAttendanceResponse res = workTimeService.bulkUpsert(
+                    targetId,
+                    request.getItems(),
+                    request.isOverwriteExisting()
+            );
+            return ResponseEntity.ok(res);
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }
@@ -58,13 +100,15 @@ public class WorkTimeController {
     public ResponseEntity<?> update(
             @PathVariable("id") Long id,
             @Valid @RequestBody WorkTimeCreateRequest request,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
             HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
         }
         try {
-            WorkTimeResponse saved = workTimeService.update(user.getId(), id, request);
+            Long targetId = targetEmployeeId(user, employeeId);
+            WorkTimeResponse saved = workTimeService.update(targetId, id, request);
             return ResponseEntity.ok(saved);
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
@@ -72,13 +116,18 @@ public class WorkTimeController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable("id") Long id, HttpSession session) {
+    public ResponseEntity<?> delete(
+            @PathVariable("id") Long id,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            HttpSession session
+    ) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
         }
         try {
-            workTimeService.delete(user.getId(), id);
+            Long targetId = targetEmployeeId(user, employeeId);
+            workTimeService.delete(targetId, id);
             return ApiResponses.message("削除しました。");
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
@@ -92,11 +141,13 @@ public class WorkTimeController {
     @PostMapping("/import-kintaihyo")
     public ResponseEntity<?> importKintaihyo(
             @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
             HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         if (file == null || file.isEmpty()) return ApiResponses.badRequest("Excel ファイルを選択してください。");
-        ImportAttendanceResponse res = attendanceImportService.importKintaihyo(file, user.getId());
+        Long targetId = targetEmployeeId(user, employeeId);
+        ImportAttendanceResponse res = attendanceImportService.importKintaihyo(file, targetId);
         return ResponseEntity.ok(res);
     }
 }
