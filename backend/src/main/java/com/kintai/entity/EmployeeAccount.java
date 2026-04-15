@@ -21,6 +21,9 @@ public class EmployeeAccount {
     @JoinColumn(name = "employee_id")
     private Employee employee;
 
+    @Column(name = "login_id", nullable = false, unique = true, length = 50)
+    private String loginId;
+
     @Column(name = "password_hash", nullable = false, length = 255)
     private String passwordHash;
 

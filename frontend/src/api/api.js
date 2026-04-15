@@ -13,8 +13,7 @@ api.interceptors.response.use(
       const url = `${error.config?.baseURL || ""}${error.config?.url || ""}`;
       const skipRedirect =
         url.includes("/auth/me") ||
-        url.includes("/auth/login") ||
-        url.includes("/auth/register");
+        url.includes("/auth/login");
       if (!skipRedirect) {
         window.location.href = "/login";
       }

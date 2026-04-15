@@ -1,5 +1,6 @@
 package com.kintai.controller;
 
+import com.kintai.auth.AdminOnly;
 import com.kintai.dto.ImportAttendanceResponse;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.WorkTimeBulkRequest;
@@ -135,9 +136,9 @@ public class WorkTimeController {
     }
 
     /**
-     * 勤務表フォーマット (202604_勤務表(氏名).xlsx) のインポート。
-     * 一般社員もアクセス可能（セッションの employeeId を使用）。
+     * 勤務表フォーマット (202604_勤務表(氏名).xlsx) のインポート（管理者のみ）。
      */
+    @AdminOnly
     @PostMapping("/import-kintaihyo")
     public ResponseEntity<?> importKintaihyo(
             @RequestParam("file") MultipartFile file,

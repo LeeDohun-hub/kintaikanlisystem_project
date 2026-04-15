@@ -15,8 +15,8 @@ export function AuthProvider({ children }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const login = async ({ employeeCode, password, role }) => {
-    const res = await api.post("/auth/login", { employeeCode, password, role });
+  const login = async ({ loginId, password, role }) => {
+    const res = await api.post("/auth/login", { loginId, password, role });
     setUser(res.data);
     return res.data;
   };
@@ -26,12 +26,8 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const register = async (payload) => {
-    await api.post("/auth/register", payload);
-  };
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, register, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

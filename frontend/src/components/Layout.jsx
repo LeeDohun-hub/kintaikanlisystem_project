@@ -3,17 +3,12 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Layout.css";
 
-const EMPLOYEE_NAV = [
-  { to: "/menu", label: "メニュー" },
-  { to: "/work-input", label: "勤怠入力" },
-  { to: "/upload", label: "EXCELアップロード" },
-  { to: "/report", label: "PDF出力" },
-];
+const EMPLOYEE_NAV = [{ to: "/work-input", label: "勤怠入力" }];
 
 const ADMIN_NAV = [
   { to: "/menu", label: "メニュー" },
   { to: "/employees", label: "社員マスタ入力" },
-  { to: "/work-input", label: "勤怠入力" },
+  { to: "/login-check", label: "ログイン確認" },
   { to: "/upload", label: "EXCELアップロード" },
   { to: "/report", label: "PDF出力" },
 ];

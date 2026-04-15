@@ -19,4 +19,7 @@ public class EmployeeSummaryResponse {
     private String department;
     private BigDecimal hourlyCost;
     private Integer activeFlag;
+
+    private String loginId;
+    private String role;
 }

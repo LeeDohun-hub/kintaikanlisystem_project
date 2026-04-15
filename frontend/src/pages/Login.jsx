@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Login.css";
 
 const STORAGE_KEY_SAVE = "kintai_login_save";
-const STORAGE_KEY_CODE = "kintai_login_employee_code";
+const STORAGE_KEY_LOGIN_ID = "kintai_login_id";
 
 function Login() {
-  const [employeeCode, setEmployeeCode] = useState("");
+  const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("EMPLOYEE");
   const [remember, setRemember] = useState(false);
@@ -15,17 +15,13 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const registeredMsg = location.state?.registered
-    ? "会員登録が完了しました。ログインしてください。"
-    : "";
 
   useEffect(() => {
     try {
       if (localStorage.getItem(STORAGE_KEY_SAVE) === "1") {
         setRemember(true);
-        const saved = localStorage.getItem(STORAGE_KEY_CODE);
-        if (saved) setEmployeeCode(saved);
+        const saved = localStorage.getItem(STORAGE_KEY_LOGIN_ID);
+        if (saved) setLoginId(saved);
       }
     } catch {
       /* ignore */
@@ -37,21 +33,21 @@ function Login() {
     setError("");
     setLoading(true);
     try {
-      const user = await login({ employeeCode, password, role });
+      const user = await login({ loginId, password, role });
       try {
         if (remember) {
           localStorage.setItem(STORAGE_KEY_SAVE, "1");
-          localStorage.setItem(STORAGE_KEY_CODE, employeeCode);
+          localStorage.setItem(STORAGE_KEY_LOGIN_ID, loginId);
         } else {
           localStorage.removeItem(STORAGE_KEY_SAVE);
-          localStorage.removeItem(STORAGE_KEY_CODE);
+          localStorage.removeItem(STORAGE_KEY_LOGIN_ID);
         }
       } catch {
         /* ignore */
       }
-      navigate("/menu");
+      navigate(user.role === "ADMIN" ? "/menu" : "/work-input");
     } catch {
-      setError("スタッフコードまたはパスワードが正しくありません。");
+      setError("ログインIDまたはパスワードが正しくありません。");
     } finally {
       setLoading(false);
     }
@@ -85,12 +81,9 @@ function Login() {
         <div className="login-split-right-inner">
           <h2 className="login-split-title">おかえりなさい</h2>
           <p className="login-split-sub">
-            スタッフコードとパスワードでサインインしてください
+            ログインIDとパスワードでサインインしてください
           </p>
 
-          {registeredMsg && !error && (
-            <div className="success-msg">{registeredMsg}</div>
-          )}
           {error && <div className="error-msg">{error}</div>}
 
           <form onSubmit={handleSubmit}>
@@ -117,16 +110,16 @@ function Login() {
               </label>
             </div>
 
-            <label className="login-split-label" htmlFor="login-employeeCode">
-              スタッフコード
+            <label className="login-split-label" htmlFor="login-loginId">
+              ログインID
             </label>
             <div className="login-split-input-wrap">
               <input
-                id="login-employeeCode"
+                id="login-loginId"
                 type="text"
-                value={employeeCode}
-                onChange={(e) => setEmployeeCode(e.target.value)}
-                placeholder="例: EMP001"
+                value={loginId}
+                onChange={(e) => setLoginId(e.target.value)}
+                placeholder="例: ADMIN001 または 00000001"
                 required
                 autoComplete="username"
                 autoFocus
@@ -174,14 +167,14 @@ function Login() {
               {loading ? "ログイン中…" : "ログイン"}
             </button>
 
-            <p className="login-split-signup">
-              アカウントをお持ちでない方は{" "}
-              <Link to="/register">新規登録はこちら</Link>
+            <p className="login-split-signup login-split-signup--muted">
+              アカウントの作成・変更は管理者が行います。
             </p>
 
             <p className="login-hint login-hint--compact">
               <span className="login-hint__title">テスト用</span>
-              管理者: ADMIN001 / admin123　／　スタッフ: EMP001 / pass123
+              管理者: ログインID ADMIN001 / パスワード 1234　／　スタッフ: 00000001 /
+              12345678
             </p>
           </form>
 

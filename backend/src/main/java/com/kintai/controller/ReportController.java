@@ -1,5 +1,6 @@
 package com.kintai.controller;
 
+import com.kintai.auth.AdminOnly;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.MonthlyStatisticsResponse;
 import com.kintai.dto.WorkTimeResponse;
@@ -41,6 +42,7 @@ public class ReportController {
     private final StatisticsService statisticsService;
     private final WorkTimeService workTimeService;
 
+    @AdminOnly
     @GetMapping(value = "/monthly.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<?> monthlyPdf(
             @RequestParam("month") String month,
