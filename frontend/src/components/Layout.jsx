@@ -1,9 +1,46 @@
-import React from "react";
+import React, { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Layout.css";
 
-const EMPLOYEE_NAV = [{ to: "/work-input", label: "勤怠入力" }];
+function SidebarPhoto({ employeeId }) {
+  const [broken, setBroken] = useState(false);
+  const size = 72;
+  const style = {
+    width: size, height: size, borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,0.15)",
+    display: "block", margin: "12px auto 0",
+    flexShrink: 0,
+  };
+
+  if (!employeeId || broken) {
+    return (
+      <div
+        style={{
+          ...style,
+          background: "rgba(255,255,255,0.08)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 32, color: "rgba(255,255,255,0.3)",
+        }}
+      >
+        {"\u{1F464}"}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={`/api/employees/${employeeId}/photo`}
+      alt=""
+      onError={() => setBroken(true)}
+      style={{ ...style, objectFit: "cover" }}
+    />
+  );
+}
+
+const EMPLOYEE_NAV = [
+  { to: "/work-input", label: "勤怠入力" },
+  { to: "/work-history", label: "勤務履歴" },
+];
 
 const ADMIN_NAV = [
   { to: "/menu", label: "メニュー" },
@@ -36,6 +73,7 @@ function Layout() {
           >
             {user?.role === "ADMIN" ? "管理者" : "スタッフ"}
           </span>
+          <SidebarPhoto employeeId={user?.id} />
         </div>
 
         <nav className="sidebar-nav">

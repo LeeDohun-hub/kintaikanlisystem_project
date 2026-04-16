@@ -60,6 +60,16 @@ public class LoginAttemptService {
         loginAttemptRepository.save(row);
     }
 
+    @Transactional
+    public void deleteAll() {
+        loginAttemptRepository.deleteAll();
+    }
+
+    @Transactional
+    public void deleteByIds(List<Long> ids) {
+        loginAttemptRepository.deleteAllById(ids);
+    }
+
     @Transactional(readOnly = true)
     public List<LoginAttemptRowResponse> listRecent(int limit) {
         int cap = Math.min(Math.max(limit, 1), MAX_LIST);

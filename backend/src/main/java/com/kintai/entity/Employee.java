@@ -29,6 +29,10 @@ public class Employee {
     @Column(length = 50)
     private String department;
 
+    /** 未登録者向け招待メールの送付先（任意） */
+    @Column(name = "invite_email", length = 254)
+    private String inviteEmail;
+
     @Column(name = "hourly_cost", nullable = false, precision = 8, scale = 2)
     private BigDecimal hourlyCost;
 
@@ -40,6 +44,9 @@ public class Employee {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "photo_filename", length = 255)
+    private String photoFilename;
 
     @PrePersist
     void prePersist() {

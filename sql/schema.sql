@@ -58,6 +58,9 @@ CREATE TABLE employee (
   -- 所属部署・チーム（なければ NULL）
   department    VARCHAR(50)     NULL,
 
+  -- 未登録者向け招待メールの送付先（任意）
+  invite_email  VARCHAR(254)    NULL,
+
   -- 時間単価原価: 損益計算等に使う単価（定義書上必須）
   hourly_cost   DECIMAL(8, 2)   NOT NULL,
 

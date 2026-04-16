@@ -17,9 +17,12 @@ public class EmployeeSummaryResponse {
     private String employeeCode;
     private String employeeName;
     private String department;
+    /** 招待メール送付先（未登録者向け） */
+    private String inviteEmail;
     private BigDecimal hourlyCost;
     private Integer activeFlag;
 
     private String loginId;
     private String role;
+    private String photoFilename;
 }

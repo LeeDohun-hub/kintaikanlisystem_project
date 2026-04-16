@@ -29,3 +29,7 @@ export function deleteWorkTime(workId, employeeId) {
   if (employeeId != null && employeeId !== "") params.employeeId = employeeId;
   return api.delete(`/worktime/${workId}`, { params });
 }
+
+export function sendMonthlyReport(month) {
+  return api.post("/worktime/send-monthly-report", { month });
+}

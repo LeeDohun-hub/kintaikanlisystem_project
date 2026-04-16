@@ -7,6 +7,8 @@ import com.kintai.entity.EmployeeAccount;
 import com.kintai.entity.Role;
 import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
+import jakarta.mail.internet.AddressException;
+import jakarta.mail.internet.InternetAddress;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -77,10 +79,14 @@ public class EmployeeMasterService {
             throw new IllegalArgumentException("activeFlag は 0 または 1 である必要があります。");
         }
 
+        String invite = normalizeOptionalInviteEmail(req.getInviteEmail());
+        validateOptionalInviteEmail(invite);
+
         Employee e = Employee.builder()
                 .employeeCode(code)
                 .employeeName(name)
                 .department(req.getDepartment() != null && !req.getDepartment().isBlank() ? req.getDepartment().trim() : null)
+                .inviteEmail(invite)
                 .hourlyCost(hourly)
                 .activeFlag(active)
                 .build();
@@ -95,6 +101,49 @@ public class EmployeeMasterService {
         employeeAccountRepository.save(account);
 
         return toSummary(e, account);
+    }
+
+    @Transactional
+    public EmployeeSummaryResponse updateInviteEmail(long employeeId, String inviteEmail) {
+        Employee e = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("従業員が見つかりません。"));
+        String normalized = normalizeAndValidateInviteEmail(inviteEmail);
+        e.setInviteEmail(normalized);
+        employeeRepository.save(e);
+        EmployeeAccount account = employeeAccountRepository.findById(employeeId).orElse(null);
+        return toSummary(e, account);
+    }
+
+    private static String normalizeOptionalInviteEmail(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String t = raw.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private static void validateOptionalInviteEmail(String email) {
+        if (email == null) {
+            return;
+        }
+        normalizeAndValidateInviteEmail(email);
+    }
+
+    private static String normalizeAndValidateInviteEmail(String raw) {
+        if (raw == null || raw.isBlank()) {
+            throw new IllegalArgumentException("メールアドレスを入力してください。");
+        }
+        String t = raw.trim();
+        if (t.length() > 254) {
+            throw new IllegalArgumentException("メールアドレスは254文字以下で入力してください。");
+        }
+        try {
+            InternetAddress a = new InternetAddress(t);
+            a.validate();
+        } catch (AddressException ex) {
+            throw new IllegalArgumentException("メールアドレスの形式が正しくありません。");
+        }
+        return t;
     }
 
     /**
@@ -121,15 +170,17 @@ public class EmployeeMasterService {
     }
 
     private static EmployeeSummaryResponse toSummary(Employee e, EmployeeAccount a) {
-        return EmployeeSummaryResponse.builder()
+        var b = EmployeeSummaryResponse.builder()
                 .employeeId(e.getEmployeeId())
                 .employeeCode(e.getEmployeeCode())
                 .employeeName(e.getEmployeeName())
                 .department(e.getDepartment())
+                .inviteEmail(e.getInviteEmail())
                 .hourlyCost(e.getHourlyCost())
-                .activeFlag(e.getActiveFlag())
-                .loginId(a.getLoginId())
-                .role(a.getRole().name())
-                .build();
+                .activeFlag(e.getActiveFlag());
+        if (a == null) {
+            return b.loginId(null).role(null).build();
+        }
+        return b.loginId(a.getLoginId()).role(a.getRole().name()).build();
     }
 }

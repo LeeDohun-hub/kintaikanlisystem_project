@@ -10,6 +10,8 @@ public class EmployeeCreateRequest {
     private String employeeCode;
     private String employeeName;
     private String department;
+    /** 招待メール送付先（任意。未登録登録時に保存可） */
+    private String inviteEmail;
     private BigDecimal hourlyCost;
     /** 1: 有効, 0: 無効 */
     private Integer activeFlag;

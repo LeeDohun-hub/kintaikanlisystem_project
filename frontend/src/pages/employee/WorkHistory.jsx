@@ -3,7 +3,7 @@ import MonthPickerCard from "../../components/MonthPickerCard";
 import { useYearMonthState } from "../../hooks/useYearMonthState";
 import { useWorkTimeByMonth } from "../../hooks/useWorkTimeByMonth";
 import { useAuth } from "../../context/AuthContext";
-import { deleteWorkTime, updateWorkTime } from "../../api/worktime";
+import { deleteWorkTime, updateWorkTime, sendMonthlyReport } from "../../api/worktime";
 import { getErrorMessage } from "../../api/error";
 import { formatMinutesAsHm, parseHmToMinutes } from "../../utils/timeFormat";
 
@@ -21,6 +21,9 @@ function WorkHistory() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const selectAllRef = useRef(null);
 
+  const [sending, setSending] = useState(false);
+  const [sendResult, setSendResult] = useState(null); // { type: "success"|"error", message: string }
+
   const isMine = (r) =>
     user != null && Number(r.employeeId) === Number(user.id);
 
@@ -28,6 +31,7 @@ function WorkHistory() {
 
   useEffect(() => {
     setSelectedIds(new Set());
+    setSendResult(null);
   }, [month]);
 
   useEffect(() => {
@@ -171,6 +175,21 @@ function WorkHistory() {
     }
   };
 
+  const handleSendReport = async () => {
+    if (!window.confirm(`${month} の勤怠データをExcelにまとめて管理者へメール送信しますか？`)) return;
+    setSending(true);
+    setSendResult(null);
+    try {
+      const res = await sendMonthlyReport(month);
+      const msg = res?.data?.message ?? `${month} の勤怠レポートを管理者へ送信しました。`;
+      setSendResult({ type: "success", message: msg });
+    } catch (err) {
+      setSendResult({ type: "error", message: getErrorMessage(err, "メール送信に失敗しました。") });
+    } finally {
+      setSending(false);
+    }
+  };
+
   const colCount = 9;
 
   return (
@@ -183,11 +202,11 @@ function WorkHistory() {
         <button
           type="button"
           className="primary"
-          onClick={() =>
-            window.open(`/api/reports/monthly.pdf?month=${month}`, "_blank")
-          }
+          disabled={sending}
+          onClick={handleSendReport}
+          title="当月の勤怠データをExcelにまとめて管理者へメール送信します"
         >
-          月次レポート PDF
+          {sending ? "送信中…" : "勤怠レポートをメール送信"}
         </button>
         <button
           type="button"
@@ -200,6 +219,21 @@ function WorkHistory() {
             : `選択を削除${selectedMineCount > 0 ? `（${selectedMineCount}件）` : ""}`}
         </button>
       </div>
+
+      {sendResult && (
+        <div
+          style={{
+            padding: "10px 14px",
+            borderRadius: 6,
+            marginBottom: 8,
+            background: sendResult.type === "success" ? "#d1fae5" : "#fee2e2",
+            color: sendResult.type === "success" ? "#065f46" : "#991b1b",
+            border: `1px solid ${sendResult.type === "success" ? "#6ee7b7" : "#fca5a5"}`,
+          }}
+        >
+          {sendResult.message}
+        </div>
+      )}
 
       {error && <div className="error-msg">{error}</div>}
 

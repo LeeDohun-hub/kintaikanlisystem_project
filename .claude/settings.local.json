@@ -23,7 +23,12 @@
       "Read(//c/Users/suppo/AppData/Local/Programs/**)",
       "Bash(mvn -f backend/pom.xml compile -q)",
       "Bash(mysql:*)",
-      "Bash(/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe:*)"
+      "Bash(/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe:*)",
+      "Bash(xargs grep *)",
+      "Bash(./gradlew flywayRepair)",
+      "Bash(where mysql *)",
+      "Read(//c/Program Files/MySQL/MySQL Server 8.0/bin/**)",
+      "Bash(/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe *)"
     ]
   }
 }

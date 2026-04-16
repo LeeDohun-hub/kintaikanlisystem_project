@@ -24,7 +24,46 @@ const EMPTY_FORM = {
   password: "",
   confirmPassword: "",
   role: "EMPLOYEE",
+  inviteEmail: "",
 };
+
+function PhotoThumb({ employeeId, photoFilename, size = 32 }) {
+  const [broken, setBroken] = React.useState(false);
+  if (!photoFilename || broken) {
+    return (
+      <span
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          width: size,
+          height: size,
+          borderRadius: "50%",
+          background: "#dde3ec",
+          fontSize: size * 0.45,
+          color: "#7f8c8d",
+          flexShrink: 0,
+        }}
+      >
+        {"\u{1F464}"}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`/api/employees/${employeeId}/photo`}
+      alt=""
+      onError={() => setBroken(true)}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        objectFit: "cover",
+        flexShrink: 0,
+      }}
+    />
+  );
+}
 
 function EmployeeMaster() {
   const { user } = useAuth();
@@ -35,6 +74,13 @@ function EmployeeMaster() {
   const [deleting, setDeleting] = useState(false);
   const selectAllRef = useRef(null);
   const [form, setForm] = useState(() => ({ ...EMPTY_FORM }));
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const photoInputRef = useRef(null);
+  const [successMsg, setSuccessMsg] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteModalEmail, setInviteModalEmail] = useState("");
 
   const load = () => {
     setError("");
@@ -75,6 +121,15 @@ function EmployeeMaster() {
     [selectedIds],
   );
 
+  /** 一覧で1名だけ選択した行 */
+  const selectedSingleRow = useMemo(() => {
+    if (!selectedKey) return null;
+    const parts = selectedKey.split(",").filter((s) => s !== "");
+    if (parts.length !== 1) return null;
+    const id = Number(parts[0]);
+    return rows.find((r) => Number(r.employeeId) === id) ?? null;
+  }, [selectedKey, rows]);
+
   /** 一覧で1名だけチェックしたとき、その行の内容を上のフォームへ反映（パスワードは空） */
   useEffect(() => {
     if (!selectedKey) {
@@ -105,6 +160,7 @@ function EmployeeMaster() {
       password: "",
       confirmPassword: "",
       role: row.role === "ADMIN" ? "ADMIN" : "EMPLOYEE",
+      inviteEmail: row.inviteEmail ?? "",
     });
   }, [selectedKey, rows]);
 
@@ -163,6 +219,23 @@ function EmployeeMaster() {
     }
   };
 
+  const onPhotoChange = (e) => {
+    const file = e.target.files?.[0] ?? null;
+    setPhotoFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setPhotoPreview(url);
+    } else {
+      setPhotoPreview(null);
+    }
+  };
+
+  const clearPhoto = () => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
   const onChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
@@ -171,31 +244,120 @@ function EmployeeMaster() {
   const onSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setSuccessMsg("");
+
     if (!isPasswordPolicyOk(form.password)) {
       setError(
         `パスワードは${PASSWORD_MIN}文字以上${PASSWORD_MAX}文字以下で、英字・数字・記号をそれぞれ1文字以上含めてください。`,
       );
       return;
     }
+
+    let createdId = null;
     try {
-      await api.post("/employees", {
+      const res = await api.post("/employees", {
         employeeCode: form.employeeCode,
         employeeName: form.employeeName,
         department: form.department || undefined,
-        hourlyCost:
-          form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
+        hourlyCost: form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
         activeFlag: Number(form.activeFlag),
         loginId: form.loginId,
         password: form.password,
         confirmPassword: form.confirmPassword,
         role: form.role,
+        inviteEmail: form.inviteEmail.trim() || undefined,
       });
-      setForm({ ...EMPTY_FORM });
-      setSelectedIds(new Set());
-      load();
+      createdId = res.data?.employeeId;
     } catch (err) {
       const msg = err.response?.data?.error || "登録に失敗しました。";
       setError(typeof msg === "string" ? msg : "登録に失敗しました。");
+      return;
+    }
+
+    // 写真がある場合はアップロード
+    if (createdId && photoFile) {
+      try {
+        const fd = new FormData();
+        fd.append("file", photoFile);
+        await api.post(`/employees/${createdId}/photo`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } catch {
+        // 写真アップロード失敗は警告のみ（登録自体は成功）
+        setError("従業員は登録しましたが、写真のアップロードに失敗しました。");
+      }
+    }
+
+    // 招待メールアドレスが入力されていれば自動送信
+    if (createdId && form.inviteEmail.trim()) {
+      try {
+        await api.post(`/employees/${createdId}/invite-email/send`, {
+          inviteEmail: form.inviteEmail.trim(),
+          loginId: form.loginId.trim(),
+          initialPassword: form.password,
+        });
+        setSuccessMsg("従業員とログインアカウントを登録し、招待メールを送信しました。");
+      } catch (mailErr) {
+        const mailMsg = mailErr.response?.data?.error || "メール送信に失敗しました。";
+        setSuccessMsg("従業員とログインアカウントを登録しました。");
+        setError(`招待メールの送信に失敗しました: ${typeof mailMsg === "string" ? mailMsg : "送信エラー"}`);
+      }
+    } else {
+      setSuccessMsg("従業員とログインアカウントを登録しました。");
+    }
+
+    setForm({ ...EMPTY_FORM });
+    clearPhoto();
+    setSelectedIds(new Set());
+    load();
+  };
+
+  const openInviteModal = () => {
+    setError("");
+    setSuccessMsg("");
+    setInviteModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (!inviteModalOpen) return;
+    if (!selectedSingleRow) {
+      setInviteModalEmail("");
+      return;
+    }
+    const fresh = rows.find(
+      (r) => Number(r.employeeId) === Number(selectedSingleRow.employeeId),
+    );
+    setInviteModalEmail((fresh?.inviteEmail ?? "").trim());
+  }, [inviteModalOpen, selectedSingleRow?.employeeId, rows]);
+
+  const closeInviteModal = () => {
+    setInviteModalOpen(false);
+  };
+
+  const sendInviteEmail = async () => {
+    if (!selectedSingleRow) return;
+    setError("");
+    setSuccessMsg("");
+    setInviteBusy(true);
+    try {
+      const trimmed = inviteModalEmail.trim();
+      const res = await api.post(
+        `/employees/${selectedSingleRow.employeeId}/invite-email/send`,
+        trimmed ? { inviteEmail: trimmed } : {},
+      );
+      const m = res.data?.message;
+      setSuccessMsg(typeof m === "string" ? m : "招待メールを送信しました。");
+      await load();
+      if (trimmed) {
+        setInviteModalEmail(trimmed);
+        setForm((prev) => ({ ...prev, inviteEmail: trimmed }));
+      }
+      closeInviteModal();
+    } catch (err) {
+      const msg = err.response?.data?.error || "送信に失敗しました。";
+      setError(typeof msg === "string" ? msg : "送信に失敗しました。");
+    } finally {
+      setInviteBusy(false);
     }
   };
 
@@ -203,10 +365,23 @@ function EmployeeMaster() {
     <div className="page-container">
       <h2 className="page-title">社員マスター入力</h2>
       <p className="page-subtitle">
-        社員コードは8文字の英数字。パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。ログインIDは空白不可（1〜50文字）です。
+        社員コードは8文字の英数字。パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
+        メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
         一覧で<strong>1名だけ</strong>チェックすると、その内容が上のフォームに自動入力されます（パスワードは空のままです）。
       </p>
       {error && <div className="error-msg">{error}</div>}
+      {successMsg && (
+        <div
+          className="error-msg"
+          style={{
+            color: "#067d4a",
+            background: "#e8fff4",
+            border: "1px solid #a3dcc4",
+          }}
+        >
+          {successMsg}
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: 16 }}>
         <h3 style={{ marginTop: 0 }}></h3>
@@ -233,6 +408,18 @@ function EmployeeMaster() {
           </div>
           <div className="form-row" style={{ marginTop: 10 }}>
             <input
+              name="inviteEmail"
+              type="email"
+              value={form.inviteEmail}
+              onChange={onChange}
+              placeholder="招待メール送付先（入力すると登録後に自動送信）"
+              maxLength={254}
+              autoComplete="off"
+              style={{ flex: "1 1 100%" }}
+            />
+          </div>
+          <div className="form-row" style={{ marginTop: 10 }}>
+            <input
               name="loginId"
               value={form.loginId}
               onChange={onChange}
@@ -241,7 +428,11 @@ function EmployeeMaster() {
               maxLength={50}
               autoComplete="off"
             />
-            <select name="role" value={form.role} onChange={onChange}>
+            <select
+              name="role"
+              value={form.role}
+              onChange={onChange}
+            >
               <option value="EMPLOYEE">一般スタッフ</option>
               <option value="ADMIN">管理者</option>
             </select>
@@ -300,6 +491,44 @@ function EmployeeMaster() {
               登録
             </button>
           </div>
+          <div className="form-row" style={{ marginTop: 10, alignItems: "center", gap: 12 }}>
+            {photoPreview ? (
+              <img
+                src={photoPreview}
+                alt="プレビュー"
+                style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "2px solid #ddd", flexShrink: 0 }}
+              />
+            ) : (
+              <span
+                style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 64, height: 64, borderRadius: "50%", background: "#dde3ec",
+                  fontSize: 28, color: "#7f8c8d", flexShrink: 0,
+                }}
+              >
+                {"\u{1F464}"}
+              </span>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
+                プロフィール写真（任意・JPEG/PNG/GIF/WebP・5MB以下）
+              </label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  ref={photoInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={onPhotoChange}
+                  style={{ fontSize: 13 }}
+                />
+                {photoFile && (
+                  <button type="button" className="secondary" style={{ padding: "4px 10px", fontSize: 12 }} onClick={clearPhoto}>
+                    クリア
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </form>
       </div>
 
@@ -315,16 +544,26 @@ function EmployeeMaster() {
           }}
         >
           <h3 style={{ margin: 0 }}>従業員一覧</h3>
-          <button
-            type="button"
-            className="secondary"
-            disabled={selectedCount === 0 || deleting}
-            onClick={deleteSelected}
-          >
-            {deleting
-              ? "削除中…"
-              : `選択を削除${selectedCount > 0 ? `（${selectedCount}件）` : ""}`}
-          </button>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            <button
+              type="button"
+              className="primary"
+              onClick={openInviteModal}
+              title="従業員を1名選択した状態で押すと招待メールを再送できます"
+            >
+              招待メール再送
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={selectedCount === 0 || deleting}
+              onClick={deleteSelected}
+            >
+              {deleting
+                ? "削除中…"
+                : `選択を削除${selectedCount > 0 ? `（${selectedCount}件）` : ""}`}
+            </button>
+          </div>
         </div>
         {loading ? (
           <p>読み込み中…</p>
@@ -343,9 +582,11 @@ function EmployeeMaster() {
                     aria-label="すべて選択"
                   />
                 </th>
+                <th style={{ width: 44 }}></th>
                 <th>ID</th>
                 <th>社員コード</th>
                 <th>ログインID</th>
+                <th>e-mail</th>
                 <th>氏名</th>
                 <th>所属</th>
                 <th>時給原価</th>
@@ -355,7 +596,7 @@ function EmployeeMaster() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>データがありません。</td>
+                  <td colSpan={10}>データがありません。</td>
                 </tr>
               ) : (
                 rows.map((r) => {
@@ -376,9 +617,15 @@ function EmployeeMaster() {
                           aria-label={`${r.employeeName}を選択`}
                         />
                       </td>
+                      <td style={{ textAlign: "center" }}>
+                        <PhotoThumb employeeId={r.employeeId} photoFilename={r.photoFilename} size={32} />
+                      </td>
                       <td>{r.employeeId}</td>
                       <td>{r.employeeCode}</td>
                       <td>{r.loginId ?? "—"}</td>
+                      <td style={{ maxWidth: 200, wordBreak: "break-all" }}>
+                        {r.inviteEmail?.trim() ? r.inviteEmail : "—"}
+                      </td>
                       <td>{r.employeeName}</td>
                       <td>{r.department ?? ""}</td>
                       <td>{r.hourlyCost ?? ""}</td>
@@ -393,6 +640,113 @@ function EmployeeMaster() {
       </div>
 
       <BackToMenuLink />
+
+      {inviteModalOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.45)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: 16,
+          }}
+          onClick={closeInviteModal}
+          onKeyDown={(e) => {
+            if (e.key === "Escape") closeInviteModal();
+          }}
+          role="presentation"
+        >
+          <div
+            className="card"
+            style={{
+              maxWidth: 520,
+              width: "100%",
+              margin: 0,
+              maxHeight: "min(90vh, 640px)",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="invite-modal-title"
+          >
+            <h3 id="invite-modal-title" style={{ marginTop: 0 }}>
+              招待メール再送
+            </h3>
+            {selectedSingleRow ? (
+              <>
+                <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
+                  選択中: <strong>{selectedSingleRow.employeeName}</strong>
+                  （ログインID: {selectedSingleRow.loginId ?? "—"}）<br />
+                  送付先を確認・変更して送信してください。メール本文にはログイン画面URLとログインIDが記載されます。
+                </p>
+                <label
+                  htmlFor="invite-modal-email"
+                  style={{
+                    display: "block",
+                    marginTop: 12,
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#333",
+                  }}
+                >
+                  招待メール送付先
+                </label>
+                <input
+                  id="invite-modal-email"
+                  type="email"
+                  value={inviteModalEmail}
+                  onChange={(e) => setInviteModalEmail(e.target.value)}
+                  placeholder="example@company.com"
+                  maxLength={254}
+                  autoComplete="off"
+                  style={{
+                    width: "100%",
+                    boxSizing: "border-box",
+                    marginTop: 6,
+                    padding: "10px 12px",
+                  }}
+                />
+                <div
+                  className="form-row"
+                  style={{ marginTop: 16, flexWrap: "wrap", gap: 10 }}
+                >
+                  <button
+                    type="button"
+                    className="primary"
+                    disabled={inviteBusy || !inviteModalEmail.trim()}
+                    onClick={sendInviteEmail}
+                  >
+                    {inviteBusy ? "送信中…" : "招待メールを送信"}
+                  </button>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={inviteBusy}
+                    onClick={closeInviteModal}
+                  >
+                    閉じる
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
+                  一覧で従業員を<strong>1名だけ</strong>チェックしてから、もう一度「招待メール再送」を押してください。
+                </p>
+                <div className="form-row" style={{ marginTop: 16 }}>
+                  <button type="button" className="secondary" onClick={closeInviteModal}>
+                    閉じる
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

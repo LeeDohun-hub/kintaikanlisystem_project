@@ -3,10 +3,12 @@ package com.kintai.controller;
 import com.kintai.auth.AdminOnly;
 import com.kintai.dto.ImportAttendanceResponse;
 import com.kintai.dto.LoginResponse;
+import com.kintai.dto.SendMonthlyReportRequest;
 import com.kintai.dto.WorkTimeBulkRequest;
 import com.kintai.dto.WorkTimeCreateRequest;
 import com.kintai.dto.WorkTimeResponse;
 import com.kintai.service.AttendanceImportService;
+import com.kintai.service.AttendanceReportEmailService;
 import com.kintai.service.WorkTimeService;
 import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
@@ -27,6 +29,7 @@ public class WorkTimeController {
 
     private final WorkTimeService workTimeService;
     private final AttendanceImportService attendanceImportService;
+    private final AttendanceReportEmailService attendanceReportEmailService;
 
     private static Long targetEmployeeId(LoginResponse user, Long employeeIdParam) {
         if (user == null) return null;
@@ -150,5 +153,22 @@ public class WorkTimeController {
         Long targetId = targetEmployeeId(user, employeeId);
         ImportAttendanceResponse res = attendanceImportService.importKintaihyo(file, targetId);
         return ResponseEntity.ok(res);
+    }
+
+    /**
+     * 指定月の勤怠データをExcelにまとめ、管理者宛にメール送信する（社員のみ実行可）。
+     */
+    @PostMapping("/send-monthly-report")
+    public ResponseEntity<?> sendMonthlyReport(
+            @Valid @RequestBody SendMonthlyReportRequest request,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            attendanceReportEmailService.sendMonthlyReport(user.getId(), request.getMonth());
+            return ApiResponses.message(request.getMonth() + " の勤怠レポートを管理者へ送信しました。");
+        } catch (IllegalStateException | IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
     }
 }

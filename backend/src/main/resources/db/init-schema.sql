@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS employee (
   employee_code VARCHAR(20)     NOT NULL,
   employee_name VARCHAR(50)     NOT NULL,
   department    VARCHAR(50)     NULL,
+  invite_email  VARCHAR(254)    NULL,
   hourly_cost   DECIMAL(8, 2)   NOT NULL,
   active_flag   TINYINT         NOT NULL DEFAULT 1 COMMENT '1:有効 0:無効',
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),

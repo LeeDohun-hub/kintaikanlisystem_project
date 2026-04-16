@@ -73,7 +73,7 @@ function AppRoutes() {
         <Route
           path="work-history"
           element={
-            <PrivateRoute adminOnly>
+            <PrivateRoute>
               <WorkHistory />
             </PrivateRoute>
           }

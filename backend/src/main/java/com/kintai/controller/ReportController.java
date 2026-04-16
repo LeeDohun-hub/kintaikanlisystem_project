@@ -5,6 +5,7 @@ import com.kintai.dto.LoginResponse;
 import com.kintai.dto.MonthlyStatisticsResponse;
 import com.kintai.dto.WorkTimeResponse;
 import com.kintai.pdf.PdfFontSupport;
+import com.kintai.repository.EmployeeRepository;
 import com.kintai.service.StatisticsService;
 import com.kintai.service.WorkTimeService;
 import com.kintai.session.LoginSessionSupport;
@@ -24,11 +25,14 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.ByteArrayOutputStream;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -41,10 +45,12 @@ public class ReportController {
 
     private final StatisticsService statisticsService;
     private final WorkTimeService workTimeService;
+    private final EmployeeRepository employeeRepository;
 
     @AdminOnly
-    @GetMapping(value = "/monthly.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @GetMapping(value = "/{filename:.+\\.pdf}", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<?> monthlyPdf(
+            @PathVariable("filename") String filename,
             @RequestParam("month") String month,
             @RequestParam(value = "employeeId", required = false) Long employeeId,
             HttpSession session
@@ -72,10 +78,21 @@ public class ReportController {
         }
 
         byte[] pdf = buildMonthlyPdf(data, detailLines);
-        String filename = "monthly-report-" + month + ".pdf";
+
+        String employeeName;
+        if ("ADMIN".equals(user.getRole()) && employeeId != null) {
+            employeeName = employeeRepository.findById(employeeId)
+                    .map(e -> e.getEmployeeName())
+                    .orElse(String.valueOf(employeeId));
+        } else {
+            employeeName = user.getName();
+        }
+        String dispositionFilename = employeeName + ".pdf";
+        String encodedFilename = URLEncoder.encode(dispositionFilename, StandardCharsets.UTF_8).replace("+", "%20");
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + dispositionFilename + "\"; filename*=UTF-8''" + encodedFilename)
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

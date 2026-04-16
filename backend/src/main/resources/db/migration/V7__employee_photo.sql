@@ -1,0 +1,1 @@
+ALTER TABLE employee ADD COLUMN IF NOT EXISTS photo_filename VARCHAR(255);

@@ -9,7 +9,9 @@ import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -35,5 +37,31 @@ public class LoginAttemptController {
         }
         List<LoginAttemptRowResponse> rows = loginAttemptService.listRecent(limit);
         return ResponseEntity.ok(rows);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<?> deleteAll(HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        loginAttemptService.deleteAll();
+        return ApiResponses.message("ログイン履歴を全件削除しました。");
+    }
+
+    @DeleteMapping("/batch")
+    public ResponseEntity<?> deleteBatch(
+            @RequestBody List<Long> ids,
+            HttpSession session
+    ) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        if (ids == null || ids.isEmpty()) {
+            return ApiResponses.badRequest("削除対象を選択してください。");
+        }
+        loginAttemptService.deleteByIds(ids);
+        return ApiResponses.message(ids.size() + " 件のログイン履歴を削除しました。");
     }
 }
