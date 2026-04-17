@@ -49,17 +49,55 @@ export default function MainMenu() {
             />
             <MenuCard
               to="/report"
-              title="PDF出力"
-              desc="月指定でPDFを出力します。"
+              title="勤怠履歴"
+              desc="勤務履歴の確認と月次PDFのプレビュー。"
               badge={{ type: "admin", text: "管理者" }}
+            />
+            <MenuCard
+              to="/board"
+              title="掲示板"
+              desc="社内の連絡・お知らせを投稿・閲覧します。"
+            />
+            <MenuCard
+              to="/messenger"
+              title="社内メッセージ"
+              desc="社員間で1対1のメッセージをやり取りします。"
+            />
+            <MenuCard
+              to="/vacation-manage"
+              title="休暇申請管理"
+              desc="社員の休暇申請を承認・却下します。"
+              badge={{ type: "admin", text: "管理者" }}
+            />
+            <MenuCard
+              to="/vacation"
+              title="休暇申請"
+              desc="連次・半休を申請します。"
             />
           </>
         ) : (
-          <MenuCard
-            to="/work-input"
-            title="勤怠入力"
-            desc="日別/月次の勤怠を入力・保存します。"
-          />
+          <>
+            <MenuCard
+              to="/work-input"
+              title="勤怠入力"
+              desc="日別/月次の勤怠を入力・保存します。"
+            />
+            <MenuCard
+              to="/board"
+              title="掲示板"
+              desc="社内の連絡・お知らせを投稿・閲覧します。"
+            />
+            <MenuCard
+              to="/messenger"
+              title="社内メッセージ"
+              desc="社員間で1対1のメッセージをやり取りします。"
+            />
+            <MenuCard
+              to="/vacation"
+              title="休暇申請"
+              desc="連次・半休を申請します。"
+            />
+          </>
         )}
       </div>
     </div>

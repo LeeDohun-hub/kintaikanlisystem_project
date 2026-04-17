@@ -81,6 +81,7 @@ function EmployeeMaster() {
   const [inviteBusy, setInviteBusy] = useState(false);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteModalEmail, setInviteModalEmail] = useState("");
+  const [updateBusy, setUpdateBusy] = useState(false);
 
   const load = () => {
     setError("");
@@ -129,6 +130,11 @@ function EmployeeMaster() {
     const id = Number(parts[0]);
     return rows.find((r) => Number(r.employeeId) === id) ?? null;
   }, [selectedKey, rows]);
+
+  const isEditMode = selectedSingleRow != null;
+  const hasLoginAccount =
+    isEditMode &&
+    String(selectedSingleRow.loginId ?? "").trim() !== "";
 
   /** 一覧で1名だけチェックしたとき、その行の内容を上のフォームへ反映（パスワードは空） */
   useEffect(() => {
@@ -243,6 +249,10 @@ function EmployeeMaster() {
 
   const onSubmit = async (e) => {
     e.preventDefault();
+    if (isEditMode) {
+      await handleUpdate();
+      return;
+    }
     setError("");
     setSuccessMsg("");
 
@@ -312,6 +322,80 @@ function EmployeeMaster() {
     load();
   };
 
+  const handleUpdate = async () => {
+    if (!selectedSingleRow) return;
+    setError("");
+    setSuccessMsg("");
+
+    const pw = form.password;
+    const cpw = form.confirmPassword;
+    const pwTouched = Boolean((pw && pw.length > 0) || (cpw && cpw.length > 0));
+    if (pwTouched) {
+      if (!isPasswordPolicyOk(pw)) {
+        setError(
+          `パスワードは${PASSWORD_MIN}文字以上${PASSWORD_MAX}文字以下で、英字・数字・記号をそれぞれ1文字以上含めてください。`,
+        );
+        return;
+      }
+      if (pw !== cpw) {
+        setError("パスワードとパスワード（確認）が一致しません。");
+        return;
+      }
+    }
+
+    if (hasLoginAccount && !String(form.loginId ?? "").trim()) {
+      setError("ログインIDを入力してください。");
+      return;
+    }
+
+    setUpdateBusy(true);
+    const id = selectedSingleRow.employeeId;
+    try {
+      await api.put(`/employees/${id}`, {
+        employeeCode: form.employeeCode,
+        employeeName: form.employeeName,
+        department: form.department || undefined,
+        hourlyCost: form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
+        activeFlag: Number(form.activeFlag),
+        loginId: hasLoginAccount ? form.loginId.trim() : undefined,
+        password: pwTouched ? pw : undefined,
+        confirmPassword: pwTouched ? cpw : undefined,
+        role: hasLoginAccount ? form.role : undefined,
+        inviteEmail: form.inviteEmail.trim() || undefined,
+      });
+    } catch (err) {
+      const msg = err.response?.data?.error || "更新に失敗しました。";
+      setError(typeof msg === "string" ? msg : "更新に失敗しました。");
+      setUpdateBusy(false);
+      return;
+    }
+
+    if (photoFile) {
+      try {
+        const fd = new FormData();
+        fd.append("file", photoFile);
+        await api.post(`/employees/${id}/photo`, fd, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } catch {
+        setError("従業員情報は更新しましたが、写真のアップロードに失敗しました。");
+        setUpdateBusy(false);
+        await load();
+        return;
+      }
+    }
+
+    setSuccessMsg("従業員情報を更新しました。");
+    setForm((prev) => ({
+      ...prev,
+      password: "",
+      confirmPassword: "",
+    }));
+    clearPhoto();
+    await load();
+    setUpdateBusy(false);
+  };
+
   const openInviteModal = () => {
     setError("");
     setSuccessMsg("");
@@ -365,9 +449,9 @@ function EmployeeMaster() {
     <div className="page-container">
       <h2 className="page-title">社員マスター入力</h2>
       <p className="page-subtitle">
-        社員コードは8文字の英数字。パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
-        メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
-        一覧で<strong>1名だけ</strong>チェックすると、その内容が上のフォームに自動入力されます（パスワードは空のままです）。
+        
+        
+        
       </p>
       {error && <div className="error-msg">{error}</div>}
       {successMsg && (
@@ -406,7 +490,10 @@ function EmployeeMaster() {
               maxLength={50}
             />
           </div>
-          <div className="form-row" style={{ marginTop: 10 }}>
+          <p>
+            社員コードは8文字の英数字。パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
+          </p>
+          <div className="form-row">
             <input
               name="inviteEmail"
               type="email"
@@ -417,14 +504,17 @@ function EmployeeMaster() {
               autoComplete="off"
               style={{ flex: "1 1 100%" }}
             />
+            <p>
+              メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
+            </p>
           </div>
-          <div className="form-row" style={{ marginTop: 10 }}>
+          <div className="form-row">
             <input
               name="loginId"
               value={form.loginId}
               onChange={onChange}
               placeholder="ログインID（例: admin02, user001）"
-              required
+              required={!isEditMode || hasLoginAccount}
               maxLength={50}
               autoComplete="off"
             />
@@ -443,21 +533,26 @@ function EmployeeMaster() {
               type="password"
               value={form.password}
               onChange={onChange}
-              placeholder="英字・数字・記号を含む8文字以上"
-              required
-              minLength={PASSWORD_MIN}
+              placeholder={
+                isEditMode
+                  ? "変更する場合のみ入力（英字・数字・記号を含む8文字以上）"
+                  : "英字・数字・記号を含む8文字以上"
+              }
+              required={!isEditMode}
+              minLength={isEditMode ? undefined : PASSWORD_MIN}
               maxLength={PASSWORD_MAX}
               title="8文字以上72文字以下、英字・数字・記号をそれぞれ1文字以上"
               autoComplete="new-password"
+              
             />
             <input
               name="confirmPassword"
               type="password"
               value={form.confirmPassword}
               onChange={onChange}
-              placeholder="パスワード（確認）"
-              required
-              minLength={PASSWORD_MIN}
+              placeholder={isEditMode ? "パスワード（確認・変更時のみ）" : "パスワード（確認）"}
+              required={!isEditMode}
+              minLength={isEditMode ? undefined : PASSWORD_MIN}
               maxLength={PASSWORD_MAX}
               autoComplete="new-password"
             />
@@ -487,7 +582,26 @@ function EmployeeMaster() {
               <option value={1}>有効(1)</option>
               <option value={0}>無効(0)</option>
             </select>
-            <button type="submit" className="primary">
+            {isEditMode ? (
+              <button
+                type="button"
+                className="primary"
+                disabled={updateBusy}
+                onClick={handleUpdate}
+              >
+                {updateBusy ? "更新中…" : "修正"}
+              </button>
+            ) : null}
+            <button
+              type="submit"
+              className="primary"
+              disabled={isEditMode}
+              title={
+                isEditMode
+                  ? "新規登録するには一覧のチェックを外してください"
+                  : undefined
+              }
+            >
               登録
             </button>
           </div>
@@ -544,6 +658,11 @@ function EmployeeMaster() {
           }}
         >
           <h3 style={{ margin: 0 }}>従業員一覧</h3>
+          <p>
+            一覧で<strong>1名だけ</strong>チェックすると、その内容が上のフォームに自動入力されます（パスワードは空のままです）。
+            内容を変更したあと<strong>修正</strong>で保存できます。パスワードは変更する場合のみ入力してください。
+            新規登録は一覧の選択を外した状態で<strong>登録</strong>を押してください。
+          </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             <button
               type="button"

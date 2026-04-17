@@ -2,6 +2,7 @@ package com.kintai.service;
 
 import com.kintai.dto.EmployeeCreateRequest;
 import com.kintai.dto.EmployeeSummaryResponse;
+import com.kintai.dto.EmployeeUpdateRequest;
 import com.kintai.entity.Employee;
 import com.kintai.entity.EmployeeAccount;
 import com.kintai.entity.Role;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Service
@@ -104,6 +106,84 @@ public class EmployeeMasterService {
     }
 
     @Transactional
+    public EmployeeSummaryResponse update(long employeeId, EmployeeUpdateRequest req) {
+        Employee e = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new IllegalArgumentException("従業員が見つかりません。"));
+
+        String code = req.getEmployeeCode() != null ? req.getEmployeeCode().trim() : "";
+        String name = req.getEmployeeName() != null ? req.getEmployeeName().trim() : "";
+        if (code.isBlank() || name.isBlank()) {
+            throw new IllegalArgumentException("社員コードと氏名は必須です。");
+        }
+        if (!EMPLOYEE_CODE.matcher(code).matches()) {
+            throw new IllegalArgumentException("社員コードは8文字の英数字で入力してください。");
+        }
+        if (name.length() > 50) {
+            throw new IllegalArgumentException("氏名は50文字以下です。");
+        }
+        if (employeeRepository.existsByEmployeeCodeAndEmployeeIdNot(code, employeeId)) {
+            throw new IllegalArgumentException("既に使用されている社員コードです。");
+        }
+
+        BigDecimal hourly = Objects.requireNonNullElse(req.getHourlyCost(), BigDecimal.ZERO);
+        Integer active = req.getActiveFlag() != null ? req.getActiveFlag() : 1;
+        if (active != 0 && active != 1) {
+            throw new IllegalArgumentException("activeFlag は 0 または 1 である必要があります。");
+        }
+
+        String invite = normalizeOptionalInviteEmail(req.getInviteEmail());
+        validateOptionalInviteEmail(invite);
+
+        e.setEmployeeCode(code);
+        e.setEmployeeName(name);
+        e.setDepartment(req.getDepartment() != null && !req.getDepartment().isBlank() ? req.getDepartment().trim() : null);
+        e.setInviteEmail(invite);
+        e.setHourlyCost(hourly);
+        e.setActiveFlag(active);
+        employeeRepository.save(e);
+
+        Optional<EmployeeAccount> accOpt = employeeAccountRepository.findById(employeeId);
+        if (accOpt.isEmpty()) {
+            return toSummary(e, null);
+        }
+
+        EmployeeAccount account = accOpt.get();
+        String loginId = req.getLoginId() != null ? req.getLoginId().trim() : "";
+        if (!LOGIN_ID.matcher(loginId).matches()) {
+            throw new IllegalArgumentException("ログインIDは1〜50文字で、空白は使えません。");
+        }
+        if (employeeAccountRepository.existsByLoginIdAndEmployeeIdNot(loginId, employeeId)) {
+            throw new IllegalArgumentException("既に使用されているログインIDです。");
+        }
+        if (req.getRole() == null || req.getRole().isBlank()) {
+            throw new IllegalArgumentException("区分を選択してください。");
+        }
+        Role role;
+        try {
+            role = Role.valueOf(req.getRole().trim().toUpperCase());
+        } catch (RuntimeException ex) {
+            throw new IllegalArgumentException("区分が正しくありません。（ADMIN または EMPLOYEE）");
+        }
+
+        String password = req.getPassword() != null ? req.getPassword() : "";
+        String confirm = req.getConfirmPassword() != null ? req.getConfirmPassword() : "";
+        boolean passwordTouched = !password.isEmpty() || !confirm.isEmpty();
+        if (passwordTouched) {
+            validatePasswordPolicy(password);
+            if (!password.equals(confirm)) {
+                throw new IllegalArgumentException("パスワードとパスワード（確認）が一致しません。");
+            }
+            account.setPasswordHash(passwordEncoder.encode(password));
+        }
+
+        account.setLoginId(loginId);
+        account.setRole(role);
+        employeeAccountRepository.save(account);
+
+        return toSummary(e, account);
+    }
+
+    @Transactional
     public EmployeeSummaryResponse updateInviteEmail(long employeeId, String inviteEmail) {
         Employee e = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new IllegalArgumentException("従業員が見つかりません。"));
@@ -177,7 +257,8 @@ public class EmployeeMasterService {
                 .department(e.getDepartment())
                 .inviteEmail(e.getInviteEmail())
                 .hourlyCost(e.getHourlyCost())
-                .activeFlag(e.getActiveFlag());
+                .activeFlag(e.getActiveFlag())
+                .photoFilename(e.getPhotoFilename());
         if (a == null) {
             return b.loginId(null).role(null).build();
         }

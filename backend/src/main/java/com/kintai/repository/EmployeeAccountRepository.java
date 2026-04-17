@@ -10,4 +10,6 @@ public interface EmployeeAccountRepository extends JpaRepository<EmployeeAccount
     Optional<EmployeeAccount> findByLoginId(String loginId);
 
     boolean existsByLoginId(String loginId);
+
+    boolean existsByLoginIdAndEmployeeIdNot(String loginId, Long employeeId);
 }

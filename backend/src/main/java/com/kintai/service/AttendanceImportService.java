@@ -837,8 +837,8 @@ public class AttendanceImportService {
 
         // Handle "4月1日(金)" / "4月1日" without a year using extracted year (or current year fallback)
         int y = (yearFromFile != null) ? yearFromFile : LocalDate.now().getYear();
-        // strip day-of-week in parentheses if exists
-        String cleaned = s.replaceAll("\\(.*?\\)", "");
+        // 「N月N日」の直後の (曜) / （曜） のみ除去（備考内の括弧は残す）
+        String cleaned = stripParentheticalsAfterJapaneseMonthDay(s);
         LocalDate kd = parseKintaihyoDate(cleaned, y);
         if (kd != null) return kd;
 
@@ -962,6 +962,16 @@ public class AttendanceImportService {
 
     private static final Pattern YEAR_PATTERN  = Pattern.compile("(\\d{4})年");
     private static final Pattern DATE_PATTERN  = Pattern.compile("(\\d{1,2})月(\\d{1,2})日");
+    /** 「4月1日(火)」「4月1日（水）」の括弧内（曜日など）を除去 */
+    private static final Pattern MONTH_DAY_PAREN_SUFFIX =
+            Pattern.compile("(\\d{1,2}月\\d{1,2}日)(\\s*[(（][^)）]*[)）])+");
+
+    private static String stripParentheticalsAfterJapaneseMonthDay(String s) {
+        if (s == null || s.isBlank()) {
+            return s;
+        }
+        return MONTH_DAY_PAREN_SUFFIX.matcher(s.trim()).replaceAll("$1");
+    }
 
     private int extractKintaihyoYear(Sheet sheet) {
         Row r = sheet.getRow(2); // row index 2 = Excel row 3
@@ -1015,6 +1025,7 @@ public class AttendanceImportService {
         if (type == CellType.STRING) {
             String s = c.getStringCellValue().trim();
             if (s.isBlank()) return null;
+            s = stripParentheticalsAfterJapaneseMonthDay(s);
             return parseKintaihyoDate(s, yearFromHeader);
         }
 

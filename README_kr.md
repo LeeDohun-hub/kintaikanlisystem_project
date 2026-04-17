@@ -4,6 +4,61 @@ Java / Spring Boot 백엔드와 React（Vite）프론트로 구성된 근태 관
 
 ---
 
+## 현재 구현된 기능 (요약)
+
+### 권한/인증
+
+- **세션 기반 로그인**: 로그인 성공 시 세션에 사용자 정보 저장
+- **역할(Role)**: `ADMIN` / `EMPLOYEE`
+  - `ADMIN`: 관리자 메뉴/기능 접근
+  - `EMPLOYEE`: 본인 근태/휴가/게시판/메신저 등
+
+### 프론트 화면(라우트)
+
+`frontend/src/App.jsx` 기준:
+
+- **공통**
+  - `/login`: 로그인
+  - `/board`, `/board/:postId`: 게시판 목록/상세(댓글 포함)
+  - `/messenger`: 사내 메신저
+  - `/vacation`: 휴가 신청/내 신청 목록
+- **직원(EMPLOYEE)**
+  - `/work-input`: 근태 입력
+  - `/work-history`: 근무 이력 조회
+- **관리자(ADMIN)**
+  - `/menu`: 메인 메뉴
+  - `/employees`: 직원 마스터
+  - `/login-check`: 로그인 시도 이력
+  - `/upload`: Excel 업로드(근태/근무표 일괄 가져오기)
+  - `/attendance-import`: 근태 가져오기(관리자 화면)
+  - `/report`: 근태 리포트/월次 PDF 프리뷰
+  - `/dashboard`: 대시보드
+  - `/work-view`: 근무 조회(관리자)
+  - `/statistics`: 통계
+  - `/vacation-manage`: 휴가 승인/관리(관리자)
+
+### 백엔드 API(주요 엔드포인트)
+
+컨트롤러 기준(대표):
+
+- **인증**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- **근태(WorkTime)**:
+  - `GET /api/worktime?month=YYYY-MM[&employeeId=...]` (관리자는 직원 지정 가능)
+  - `POST /api/worktime`, `PUT /api/worktime/{id}`, `DELETE /api/worktime/{id}`
+  - `POST /api/worktime/bulk` (월간 일괄 저장)
+  - `POST /api/worktime/import-kintaihyo` (관리자 전용, 근무표 Excel)
+  - `POST /api/worktime/send-monthly-report` (직원 실행 → 관리자에게 월간 레포트 이메일)
+- **직원 마스터(관리자)**: `/api/employees/*`
+  - 직원 CRUD, 초대 이메일 저장/발송, 일괄 삭제 등
+- **사진(직원 프로필)**:
+  - `POST /api/employees/{id}/photo` (관리자 업로드)
+  - `GET /api/employees/{id}/photo` (로그인 사용자면 조회 가능)
+- **게시판**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/{postId}`, 댓글 `POST/DELETE /api/board/{postId}/comments/*`
+- **메신저**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`
+- **휴가**: `/api/vacations/*`
+  - 직원: `GET /api/vacations/my`, `POST /api/vacations`, `DELETE /api/vacations/{requestId}`
+  - 관리자: `GET /api/vacations?status=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`
+
 ## 로컬에서 실행하는 방법
 
 ### 사전 준비

@@ -4,6 +4,7 @@ import com.kintai.auth.AdminOnly;
 import com.kintai.dto.EmployeeBatchDeleteRequest;
 import com.kintai.dto.EmployeeCreateRequest;
 import com.kintai.dto.EmployeeInviteEmailPatchRequest;
+import com.kintai.dto.EmployeeUpdateRequest;
 import com.kintai.dto.EmployeeInviteEmailSendRequest;
 import com.kintai.dto.EmployeeSummaryResponse;
 import com.kintai.dto.LoginResponse;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -63,6 +65,22 @@ public class EmployeeController {
         }
         try {
             return ResponseEntity.ok(employeeMasterService.create(req));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{employeeId}")
+    public ResponseEntity<?> update(
+            @PathVariable("employeeId") long employeeId,
+            @RequestBody EmployeeUpdateRequest req,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        try {
+            return ResponseEntity.ok(employeeMasterService.update(employeeId, req));
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }

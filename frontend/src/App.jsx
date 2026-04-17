@@ -13,6 +13,11 @@ import AttendanceImport from "./pages/admin/AttendanceImport";
 import MainMenu from "./pages/MainMenu";
 import Upload from "./pages/Upload";
 import ReportOutput from "./pages/ReportOutput";
+import Board from "./pages/Board";
+import BoardDetail from "./pages/BoardDetail";
+import Messenger from "./pages/Messenger";
+import VacationRequest from "./pages/employee/VacationRequest";
+import VacationAdmin from "./pages/admin/VacationAdmin";
 import Layout from "./components/Layout";
 import LoadingSpinner from "./components/LoadingSpinner";
 
@@ -139,6 +144,46 @@ function AppRoutes() {
           element={
             <PrivateRoute adminOnly>
               <AttendanceImport />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="board"
+          element={
+            <PrivateRoute>
+              <Board />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="board/:postId"
+          element={
+            <PrivateRoute>
+              <BoardDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="messenger"
+          element={
+            <PrivateRoute>
+              <Messenger />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="vacation"
+          element={
+            <PrivateRoute>
+              <VacationRequest />
+            </PrivateRoute>
+          }
+        />
+        <Route
+          path="vacation-manage"
+          element={
+            <PrivateRoute adminOnly>
+              <VacationAdmin />
             </PrivateRoute>
           }
         />

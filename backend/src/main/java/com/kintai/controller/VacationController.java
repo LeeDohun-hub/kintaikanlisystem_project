@@ -1,0 +1,101 @@
+package com.kintai.controller;
+
+import com.kintai.dto.LoginResponse;
+import com.kintai.dto.VacationRejectRequest;
+import com.kintai.dto.VacationSubmitRequest;
+import com.kintai.service.VacationService;
+import com.kintai.session.LoginSessionSupport;
+import com.kintai.web.ApiResponses;
+import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api/vacations")
+@RequiredArgsConstructor
+public class VacationController {
+
+    private final VacationService vacationService;
+
+    // ── 社員向け ────────────────────────────────────────────────
+
+    /** 自分の申請一覧 */
+    @GetMapping("/my")
+    public ResponseEntity<?> myRequests(HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        return ResponseEntity.ok(vacationService.getMyRequests(user.getId()));
+    }
+
+    /** 休暇申請 */
+    @PostMapping
+    public ResponseEntity<?> submit(@RequestBody VacationSubmitRequest req, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            return ResponseEntity.ok(vacationService.submit(user, req));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    /** 申請取消（申請中のみ） */
+    @DeleteMapping("/{requestId}")
+    public ResponseEntity<?> cancel(@PathVariable("requestId") Long requestId, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            vacationService.cancel(user, requestId);
+            return ApiResponses.message("申請をキャンセルしました。");
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    // ── 管理者向け ──────────────────────────────────────────────
+
+    /** 全申請一覧（?status=PENDING など） */
+    @GetMapping
+    public ResponseEntity<?> allRequests(
+            @RequestParam(value = "status", required = false) String status,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        if (!"ADMIN".equals(user.getRole())) return ApiResponses.error(
+                org.springframework.http.HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
+        try {
+            return ResponseEntity.ok(vacationService.getAllRequests(status));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    /** 承認 */
+    @PutMapping("/{requestId}/approve")
+    public ResponseEntity<?> approve(@PathVariable("requestId") Long requestId, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            return ResponseEntity.ok(vacationService.approve(user, requestId));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    /** 却下 */
+    @PutMapping("/{requestId}/reject")
+    public ResponseEntity<?> reject(
+            @PathVariable("requestId") Long requestId,
+            @RequestBody(required = false) VacationRejectRequest req,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            return ResponseEntity.ok(vacationService.reject(user, requestId,
+                    req != null ? req : new VacationRejectRequest()));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+}

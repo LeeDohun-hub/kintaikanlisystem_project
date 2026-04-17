@@ -38,16 +38,23 @@ function SidebarPhoto({ employeeId }) {
 }
 
 const EMPLOYEE_NAV = [
-  { to: "/work-input", label: "勤怠入力" },
+  { to: "/work-input",   label: "勤怠入力" },
   { to: "/work-history", label: "勤務履歴" },
+  { to: "/board",        label: "掲示板" },
+  { to: "/messenger",    label: "社内メッセージ" },
+  { to: "/vacation",     label: "休暇申請" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/menu", label: "メニュー" },
-  { to: "/employees", label: "社員マスタ入力" },
-  { to: "/login-check", label: "ログイン確認" },
-  { to: "/upload", label: "EXCELアップロード" },
-  { to: "/report", label: "PDF出力" },
+  { to: "/menu",            label: "メニュー" },
+  { to: "/employees",       label: "社員マスタ入力" },
+  { to: "/login-check",     label: "ログイン確認" },
+  { to: "/upload",          label: "EXCELアップロード" },
+  { to: "/report",          label: "勤怠履歴" },
+  { to: "/board",           label: "掲示板" },
+  { to: "/messenger",       label: "社内メッセージ" },
+  { to: "/vacation-manage", label: "休暇申請管理" },
+  { to: "/vacation",        label: "休暇申請" },
 ];
 
 function Layout() {

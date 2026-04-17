@@ -4,6 +4,61 @@ Java / Spring Boot バックエンドと React（Vite）フロントの勤怠管
 
 ---
 
+## 現在実装されている機能（概要）
+
+### 認証・権限
+
+- **セッション認証**（ログイン成功時にセッションへユーザー情報を保存）
+- **ロール**: `ADMIN` / `EMPLOYEE`
+  - `ADMIN`: 管理者メニュー・管理機能へアクセス
+  - `EMPLOYEE`: 自分の勤怠/休暇/掲示板/メッセンジャー等
+
+### 画面（フロントのルーティング）
+
+`frontend/src/App.jsx` 基準:
+
+- **共通**
+  - `/login`: ログイン
+  - `/board`, `/board/:postId`: 掲示板（投稿・閲覧・コメント）
+  - `/messenger`: 社内メッセンジャー
+  - `/vacation`: 休暇申請（自分の申請一覧）
+- **従業員（EMPLOYEE）**
+  - `/work-input`: 勤怠入力
+  - `/work-history`: 勤務履歴
+- **管理者（ADMIN）**
+  - `/menu`: メインメニュー
+  - `/employees`: 社員マスタ
+  - `/login-check`: ログイン試行の確認
+  - `/upload`: Excel アップロード（勤怠/勤務表の取込）
+  - `/attendance-import`: 勤怠取込（管理者画面）
+  - `/report`: 勤怠レポート／月次 PDF プレビュー
+  - `/dashboard`: ダッシュボード
+  - `/work-view`: 勤務照会
+  - `/statistics`: 統計
+  - `/vacation-manage`: 休暇申請の管理（承認/却下）
+
+### バックエンド API（主要エンドポイント）
+
+コントローラ実装（代表）:
+
+- **認証**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+- **勤怠（WorkTime）**:
+  - `GET /api/worktime?month=YYYY-MM[&employeeId=...]`（管理者は従業員指定可）
+  - `POST /api/worktime`, `PUT /api/worktime/{id}`, `DELETE /api/worktime/{id}`
+  - `POST /api/worktime/bulk`（月間の一括保存／上書き）
+  - `POST /api/worktime/import-kintaihyo`（管理者のみ、勤務表 Excel 取込）
+  - `POST /api/worktime/send-monthly-report`（従業員実行 → 管理者へ月次レポート送信）
+- **社員マスタ（管理者）**: `/api/employees/*`
+  - 登録/更新、招待メール、バッチ削除等
+- **社員写真（プロフィール）**:
+  - `POST /api/employees/{id}/photo`（管理者アップロード）
+  - `GET /api/employees/{id}/photo`（ログイン中ユーザーなら取得可能）
+- **掲示板**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/{postId}`, コメント `POST/DELETE /api/board/{postId}/comments/*`
+- **メッセンジャー**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`
+- **休暇**: `/api/vacations/*`
+  - 従業員: `GET /api/vacations/my`, `POST /api/vacations`, `DELETE /api/vacations/{requestId}`
+  - 管理者: `GET /api/vacations?status=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`
+
 ## ローカル開発の実行方法
 
 ### 事前準備
