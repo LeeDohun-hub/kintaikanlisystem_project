@@ -2,7 +2,7 @@
 
 - **한국어:** [README_kr.md](README_kr.md)
 - **日本語:** [README_jp.md](README_jp.md)
-
+- **시스템 설계도** [system-design-overview.md](system-design-overview.md)
 ## What’s implemented (high level)
 
 - **Auth**: session-based login (`/api/auth/*`), role `ADMIN` / `EMPLOYEE`
