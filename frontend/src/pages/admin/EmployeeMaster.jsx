@@ -89,7 +89,7 @@ function EmployeeMaster() {
     api
       .get("/employees")
       .then((r) => setRows(r.data || []))
-      .catch(() => setError("従業員一覧を読み込めませんでした。"))
+      .catch(() => setError("社員一覧を読み込めませんでした。"))
       .finally(() => setLoading(false));
   };
 
@@ -206,7 +206,7 @@ function EmployeeMaster() {
     if (ids.length === 0) return;
     if (
       !window.confirm(
-        `選択した ${ids.length} 件の従業員・ログインアカウントを削除します。勤務データがある場合はDB設定に従い連動削除されます。この操作は取り消せません。`,
+        `選択した ${ids.length} 件の社員・ログインアカウントを削除します。勤務データがある場合はDB設定に従い連動削除されます。この操作は取り消せません。`,
       )
     ) {
       return;
@@ -294,7 +294,7 @@ function EmployeeMaster() {
         });
       } catch {
         // 写真アップロード失敗は警告のみ（登録自体は成功）
-        setError("従業員は登録しましたが、写真のアップロードに失敗しました。");
+        setError("社員は登録しましたが、写真のアップロードに失敗しました。");
       }
     }
 
@@ -306,14 +306,14 @@ function EmployeeMaster() {
           loginId: form.loginId.trim(),
           initialPassword: form.password,
         });
-        setSuccessMsg("従業員とログインアカウントを登録し、招待メールを送信しました。");
+        setSuccessMsg("社員とログインアカウントを登録し、招待メールを送信しました。");
       } catch (mailErr) {
         const mailMsg = mailErr.response?.data?.error || "メール送信に失敗しました。";
-        setSuccessMsg("従業員とログインアカウントを登録しました。");
+        setSuccessMsg("社員とログインアカウントを登録しました。");
         setError(`招待メールの送信に失敗しました: ${typeof mailMsg === "string" ? mailMsg : "送信エラー"}`);
       }
     } else {
-      setSuccessMsg("従業員とログインアカウントを登録しました。");
+      setSuccessMsg("社員とログインアカウントを登録しました。");
     }
 
     setForm({ ...EMPTY_FORM });
@@ -378,14 +378,14 @@ function EmployeeMaster() {
           headers: { "Content-Type": "multipart/form-data" },
         });
       } catch {
-        setError("従業員情報は更新しましたが、写真のアップロードに失敗しました。");
+        setError("社員情報は更新しましたが、写真のアップロードに失敗しました。");
         setUpdateBusy(false);
         await load();
         return;
       }
     }
 
-    setSuccessMsg("従業員情報を更新しました。");
+    setSuccessMsg("社員情報を更新しました。");
     setForm((prev) => ({
       ...prev,
       password: "",
@@ -657,7 +657,7 @@ function EmployeeMaster() {
             marginBottom: 12,
           }}
         >
-          <h3 style={{ margin: 0 }}>従業員一覧</h3>
+          <h3 style={{ margin: 0 }}>社員一覧</h3>
           <p>
             一覧で<strong>1名だけ</strong>チェックすると、その内容が上のフォームに自動入力されます（パスワードは空のままです）。
             内容を変更したあと<strong>修正</strong>で保存できます。パスワードは変更する場合のみ入力してください。
@@ -668,7 +668,7 @@ function EmployeeMaster() {
               type="button"
               className="primary"
               onClick={openInviteModal}
-              title="従業員を1名選択した状態で押すと招待メールを再送できます"
+              title="社員を1名選択した状態で押すと招待メールを再送できます"
             >
               招待メール再送
             </button>
@@ -854,7 +854,7 @@ function EmployeeMaster() {
             ) : (
               <>
                 <p style={{ marginTop: 0, fontSize: 14, lineHeight: 1.5 }}>
-                  一覧で従業員を<strong>1名だけ</strong>チェックしてから、もう一度「招待メール再送」を押してください。
+                  一覧で社員を<strong>1名だけ</strong>チェックしてから、もう一度「招待メール再送」を押してください。
                 </p>
                 <div className="form-row" style={{ marginTop: 16 }}>
                   <button type="button" className="secondary" onClick={closeInviteModal}>

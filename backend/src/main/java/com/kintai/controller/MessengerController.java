@@ -7,6 +7,7 @@ import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -45,6 +46,34 @@ public class MessengerController {
         if (user == null) return ApiResponses.unauthorized();
         try {
             return ResponseEntity.ok(messengerService.sendMessage(user, req));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    /**
+     * 会話削除。DELETE はプロキシ等でブロックされる環境があるため、POST 版も提供する。
+     */
+    @DeleteMapping("/conversation/{partnerId}")
+    public ResponseEntity<?> deleteConversation(
+            @PathVariable("partnerId") Long partnerId,
+            HttpSession session) {
+        return deleteConversationInternal(partnerId, session);
+    }
+
+    @PostMapping("/conversation/{partnerId}/delete")
+    public ResponseEntity<?> deleteConversationPost(
+            @PathVariable("partnerId") Long partnerId,
+            HttpSession session) {
+        return deleteConversationInternal(partnerId, session);
+    }
+
+    private ResponseEntity<?> deleteConversationInternal(Long partnerId, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            messengerService.leaveConversation(user.getId(), partnerId);
+            return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }

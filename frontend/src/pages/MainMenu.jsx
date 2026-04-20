@@ -32,7 +32,7 @@ export default function MainMenu() {
             <MenuCard
               to="/employees"
               title="社員マスタ入力"
-              desc="従業員の登録・編集を行います。"
+              desc="社員の登録・編集を行います。"
               badge={{ type: "admin", text: "管理者" }}
             />
             <MenuCard

@@ -18,6 +18,8 @@ public class MessageResponse {
     private Long receiverId;
     private String receiverName;
     private String content;
+    /** PARTNER_LEFT など。通常メッセージは null */
+    private String systemType;
     private boolean read;
     private LocalDateTime createdAt;
 }

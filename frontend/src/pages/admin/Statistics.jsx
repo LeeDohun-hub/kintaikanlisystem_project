@@ -85,12 +85,12 @@ function Statistics() {
             <div className="stat-tile">
               <div className="stat-tile-label">集計対象人数</div>
               <div className="stat-tile-value">{activeCount}</div>
-              <div className="stat-tile-sub">勤務記録が 1 件以上ある従業員</div>
+              <div className="stat-tile-sub">勤務記録が 1 件以上ある社員</div>
             </div>
           </div>
 
           <div className="card section-card">
-            <h3 className="section-title">従業員別の合計勤務時間</h3>
+            <h3 className="section-title">社員別の合計勤務時間</h3>
             <p className="section-desc">
               勤務時間が多い順に並べています。社員コード昇順が必要な場合は PDF をご利用ください。
             </p>

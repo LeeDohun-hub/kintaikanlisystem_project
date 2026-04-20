@@ -22,7 +22,7 @@ export function useEmployees(enabled = true) {
       .catch(() => {
         if (!cancelled) {
           setRows([]);
-          setError("従業員一覧を読み込めませんでした。");
+          setError("社員一覧を読み込めませんでした。");
         }
       })
       .finally(() => {

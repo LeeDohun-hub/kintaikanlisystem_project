@@ -37,7 +37,7 @@ function Dashboard() {
       if (cancelled) return;
       const parts = [];
       if (cnt === null) {
-        parts.push("従業員一覧を読み込めませんでした。");
+        parts.push("社員一覧を読み込めませんでした。");
         setEmpCount(0);
       } else {
         setEmpCount(cnt);
@@ -67,7 +67,7 @@ function Dashboard() {
     <div className="page-container">
       <h2 className="page-title">ダッシュボード</h2>
       <p className="page-subtitle">
-        登録従業員と、選択した月の勤務時間サマリーを一覧できます。
+        登録社員と、選択した月の勤務時間サマリーを一覧できます。
       </p>
       {error && <div className="error-msg">{error}</div>}
 
@@ -79,7 +79,7 @@ function Dashboard() {
         <>
           <div className="stat-grid">
             <div className="stat-tile">
-              <div className="stat-tile-label">登録従業員</div>
+              <div className="stat-tile-label">登録社員</div>
               <div className="stat-tile-value">{empCount}</div>
               <div className="stat-tile-sub">名（マスタ登録数）</div>
             </div>
@@ -95,7 +95,7 @@ function Dashboard() {
                 <div className="stat-tile">
                   <div className="stat-tile-label">勤務記録のある人数</div>
                   <div className="stat-tile-value">{activeCount}</div>
-                  <div className="stat-tile-sub">当月に実績がある従業員</div>
+                  <div className="stat-tile-sub">当月に実績がある社員</div>
                 </div>
               </>
             )}

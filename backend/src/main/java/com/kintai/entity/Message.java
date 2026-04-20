@@ -14,6 +14,8 @@ import java.time.LocalDateTime;
 @Builder
 public class Message {
 
+    public static final String SYSTEM_TYPE_PARTNER_LEFT = "PARTNER_LEFT";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "message_id")
@@ -29,6 +31,10 @@ public class Message {
 
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
+
+    /** 通常メッセージは null。PARTNER_LEFT は相手が会話を終了した通知 */
+    @Column(name = "system_type", length = 32)
+    private String systemType;
 
     @Column(name = "is_read", nullable = false)
     @Builder.Default

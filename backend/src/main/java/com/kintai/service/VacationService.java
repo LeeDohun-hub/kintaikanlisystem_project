@@ -15,12 +15,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class VacationService {
+
+    private static final int REASON_MAX_LEN = 500;
+    private static final String MSG_VACATION_TYPE = "休暇区分が正しくありません。（FULL / HALF_AM / HALF_PM）";
+    private static final String MSG_STATUS_FILTER = "statusの値が不正です。";
+    private static final String MSG_PENDING_APPROVE = "申請中の休暇申請のみ承認できます。";
+    private static final String MSG_PENDING_REJECT = "申請中の休暇申請のみ却下できます。";
 
     private final VacationRequestRepository vacationRequestRepository;
     private final EmployeeRepository employeeRepository;
@@ -29,33 +34,10 @@ public class VacationService {
 
     @Transactional
     public VacationRequestResponse submit(LoginResponse loginUser, VacationSubmitRequest req) {
-        if (req.getVacationDate() == null) {
-            throw new IllegalArgumentException("休暇日を入力してください。");
-        }
-        if (req.getVacationDate().isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("過去の日付には申請できません。");
-        }
-
-        VacationType type;
-        try {
-            type = VacationType.valueOf(req.getVacationType().trim().toUpperCase());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("休暇区分が正しくありません。（FULL / HALF_AM / HALF_PM）");
-        }
-
-        boolean duplicate = vacationRequestRepository
-                .existsByEmployeeEmployeeIdAndVacationDateAndStatusIn(
-                        loginUser.getId(),
-                        req.getVacationDate(),
-                        List.of(VacationStatus.PENDING, VacationStatus.APPROVED));
-        if (duplicate) {
-            throw new IllegalArgumentException("指定日にすでに申請中または承認済の休暇申請があります。");
-        }
-
-        String reason = req.getReason() != null ? req.getReason().trim() : null;
-        if (reason != null && reason.length() > 500) {
-            throw new IllegalArgumentException("申請理由は500文字以内で入力してください。");
-        }
+        validateSubmitDates(req.getVacationDate());
+        VacationType type = parseVacationType(req.getVacationType());
+        assertNoDuplicateActiveRequest(loginUser.getId(), req.getVacationDate());
+        String reason = normalizeOptionalBounded(req.getReason(), REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
 
         Employee employee = findEmployee(loginUser.getId());
         VacationRequest saved = vacationRequestRepository.save(
@@ -80,12 +62,7 @@ public class VacationService {
     @Transactional
     public void cancel(LoginResponse loginUser, Long requestId) {
         VacationRequest v = findRequest(requestId);
-        if (!v.getEmployee().getEmployeeId().equals(loginUser.getId())) {
-            throw new IllegalArgumentException("他の社員の申請はキャンセルできません。");
-        }
-        if (v.getStatus() != VacationStatus.PENDING) {
-            throw new IllegalArgumentException("申請中の休暇申請のみキャンセルできます。");
-        }
+        v.assertCancellableBy(loginUser.getId());
         vacationRequestRepository.delete(v);
     }
 
@@ -94,12 +71,7 @@ public class VacationService {
     @Transactional(readOnly = true)
     public List<VacationRequestResponse> getAllRequests(String statusFilter) {
         if (statusFilter != null && !statusFilter.isBlank()) {
-            VacationStatus status;
-            try {
-                status = VacationStatus.valueOf(statusFilter.trim().toUpperCase());
-            } catch (Exception e) {
-                throw new IllegalArgumentException("statusの値が不正です。");
-            }
+            VacationStatus status = parseVacationStatusFilter(statusFilter);
             return vacationRequestRepository.findByStatus(status).stream()
                     .map(this::toResponse).toList();
         }
@@ -111,13 +83,8 @@ public class VacationService {
     public VacationRequestResponse approve(LoginResponse loginUser, Long requestId) {
         requireAdmin(loginUser);
         VacationRequest v = findRequest(requestId);
-        if (v.getStatus() != VacationStatus.PENDING) {
-            throw new IllegalArgumentException("申請中の休暇申請のみ承認できます。");
-        }
         Employee approver = findEmployee(loginUser.getId());
-        v.setStatus(VacationStatus.APPROVED);
-        v.setApprovedBy(approver);
-        v.setApprovedAt(LocalDateTime.now());
+        v.applyApproval(approver, MSG_PENDING_APPROVE);
         return toResponse(vacationRequestRepository.save(v));
     }
 
@@ -125,22 +92,66 @@ public class VacationService {
     public VacationRequestResponse reject(LoginResponse loginUser, Long requestId, VacationRejectRequest req) {
         requireAdmin(loginUser);
         VacationRequest v = findRequest(requestId);
-        if (v.getStatus() != VacationStatus.PENDING) {
-            throw new IllegalArgumentException("申請中の休暇申請のみ却下できます。");
-        }
-        String rejectReason = req.getRejectReason() != null ? req.getRejectReason().trim() : "";
-        if (rejectReason.length() > 500) {
-            throw new IllegalArgumentException("却下理由は500文字以内で入力してください。");
-        }
+        String storedReason = normalizeOptionalBounded(
+                req.getRejectReason() != null ? req.getRejectReason() : "",
+                REASON_MAX_LEN,
+                "却下理由は500文字以内で入力してください。");
         Employee approver = findEmployee(loginUser.getId());
-        v.setStatus(VacationStatus.REJECTED);
-        v.setApprovedBy(approver);
-        v.setApprovedAt(LocalDateTime.now());
-        v.setRejectReason(rejectReason.isEmpty() ? null : rejectReason);
+        v.applyRejection(approver, storedReason, MSG_PENDING_REJECT);
         return toResponse(vacationRequestRepository.save(v));
     }
 
     // ── 内部 ────────────────────────────────────────────────────
+
+    private void validateSubmitDates(LocalDate vacationDate) {
+        if (vacationDate == null) {
+            throw new IllegalArgumentException("休暇日を入力してください。");
+        }
+        if (vacationDate.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("過去の日付には申請できません。");
+        }
+    }
+
+    private VacationType parseVacationType(String raw) {
+        if (raw == null) {
+            throw new IllegalArgumentException(MSG_VACATION_TYPE);
+        }
+        try {
+            return VacationType.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(MSG_VACATION_TYPE);
+        }
+    }
+
+    private VacationStatus parseVacationStatusFilter(String raw) {
+        try {
+            return VacationStatus.valueOf(raw.trim().toUpperCase());
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException(MSG_STATUS_FILTER);
+        }
+    }
+
+    private void assertNoDuplicateActiveRequest(Long employeeId, LocalDate vacationDate) {
+        boolean duplicate = vacationRequestRepository
+                .existsByEmployeeEmployeeIdAndVacationDateAndStatusIn(
+                        employeeId,
+                        vacationDate,
+                        List.of(VacationStatus.PENDING, VacationStatus.APPROVED));
+        if (duplicate) {
+            throw new IllegalArgumentException("指定日にすでに申請中または承認済の休暇申請があります。");
+        }
+    }
+
+    /**
+     * 前後の空白を除去し、最大長を超えたら例外。入力 null は空文字として扱う。
+     */
+    private String normalizeOptionalBounded(String raw, int maxLen, String tooLongMessage) {
+        String s = raw != null ? raw.trim() : "";
+        if (s.length() > maxLen) {
+            throw new IllegalArgumentException(tooLongMessage);
+        }
+        return s.isEmpty() ? null : s;
+    }
 
     private void requireAdmin(LoginResponse user) {
         if (!"ADMIN".equals(user.getRole())) {

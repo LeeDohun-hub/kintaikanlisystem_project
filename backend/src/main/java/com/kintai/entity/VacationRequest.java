@@ -66,4 +66,36 @@ public class VacationRequest {
     void preUpdate() {
         updatedAt = LocalDateTime.now();
     }
+
+    /** 申請中のみキャンセル可能。本人チェック込み */
+    public void assertCancellableBy(Long employeeId) {
+        if (!employee.getEmployeeId().equals(employeeId)) {
+            throw new IllegalArgumentException("他の社員の申請はキャンセルできません。");
+        }
+        if (status != VacationStatus.PENDING) {
+            throw new IllegalArgumentException("申請中の休暇申請のみキャンセルできます。");
+        }
+    }
+
+    public void applyApproval(Employee approver, String notPendingMessage) {
+        assertPending(notPendingMessage);
+        this.status = VacationStatus.APPROVED;
+        this.approvedBy = approver;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectReason = null;
+    }
+
+    public void applyRejection(Employee approver, String rejectReason, String notPendingMessage) {
+        assertPending(notPendingMessage);
+        this.status = VacationStatus.REJECTED;
+        this.approvedBy = approver;
+        this.approvedAt = LocalDateTime.now();
+        this.rejectReason = rejectReason;
+    }
+
+    private void assertPending(String notPendingMessage) {
+        if (status != VacationStatus.PENDING) {
+            throw new IllegalArgumentException(notPendingMessage);
+        }
+    }
 }

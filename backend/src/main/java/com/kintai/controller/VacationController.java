@@ -8,6 +8,7 @@ import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -62,8 +63,9 @@ public class VacationController {
             HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
-        if (!"ADMIN".equals(user.getRole())) return ApiResponses.error(
-                org.springframework.http.HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
+        if (!"ADMIN".equals(user.getRole())) {
+            return ApiResponses.error(HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
+        }
         try {
             return ResponseEntity.ok(vacationService.getAllRequests(status));
         } catch (IllegalArgumentException e) {

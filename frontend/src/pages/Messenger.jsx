@@ -66,10 +66,12 @@ export default function Messenger() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 会話切り替え時にメッセージを読み込む
+  // 会話切り替え時にメッセージを読み込む / 閉じたらクリア
   useEffect(() => {
     if (activePartnerId) {
       loadMessages(activePartnerId);
+    } else {
+      setMessages([]);
     }
   }, [activePartnerId, loadMessages]);
 
@@ -128,6 +130,30 @@ export default function Messenger() {
     }
     setShowNewChat(true);
     setEmpSearch("");
+  };
+
+  /** X: 自分の一覧から外す。相手には履歴と「退出」通知が残る */
+  const onCloseConversation = async () => {
+    if (!activePartnerId) return;
+    if (
+      !window.confirm(
+        "この会話から退出しますか？\n自分の一覧からは消えますが、相手の画面では履歴が残り、退出したことが通知されます。"
+      )
+    ) {
+      return;
+    }
+    setError("");
+    try {
+      // POST: 一部環境で DELETE が 405 になるため
+      await api.post(`/messenger/conversation/${activePartnerId}/delete`);
+      setMessages([]);
+      setActivePartnerId(null);
+      setActivePartnerName("");
+      loadConversations();
+      navigate("/messenger", { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.error || "会話の削除に失敗しました。");
+    }
   };
 
   // Enter で送信、Shift+Enter で改行
@@ -324,11 +350,55 @@ export default function Messenger() {
                   fontSize: 15,
                   background: "#fff",
                   flexShrink: 0,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
                 }}
               >
-                {activePartnerName ||
-                  conversations.find((c) => c.partnerId === activePartnerId)?.partnerName ||
-                  ""}
+                <span
+                  style={{
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    minWidth: 0,
+                  }}
+                >
+                  {activePartnerName ||
+                    conversations.find((c) => c.partnerId === activePartnerId)?.partnerName ||
+                    ""}
+                </span>
+                <button
+                  type="button"
+                  aria-label="会話から退出"
+                  title="会話から退出"
+                  onClick={onCloseConversation}
+                  style={{
+                    flexShrink: 0,
+                    width: 32,
+                    height: 32,
+                    border: "none",
+                    borderRadius: 6,
+                    background: "#f0f0f0",
+                    color: "#444",
+                    fontSize: 20,
+                    lineHeight: 1,
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = "#e53e3e";
+                    e.currentTarget.style.color = "#fff";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = "#f0f0f0";
+                    e.currentTarget.style.color = "#444";
+                  }}
+                >
+                  ×
+                </button>
               </div>
 
               {/* メッセージ一覧 */}
@@ -350,6 +420,38 @@ export default function Messenger() {
                 ) : (
                   messages.map((m) => {
                     const isMine = m.senderId === myId;
+                    const isPartnerLeft = m.systemType === "PARTNER_LEFT";
+                    if (isPartnerLeft) {
+                      return (
+                        <div
+                          key={m.messageId}
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            width: "100%",
+                          }}
+                        >
+                          <div
+                            style={{
+                              maxWidth: "90%",
+                              textAlign: "center",
+                              fontSize: 13,
+                              color: "#666",
+                              background: "#eef0f3",
+                              borderRadius: 8,
+                              padding: "10px 14px",
+                              lineHeight: 1.5,
+                            }}
+                          >
+                            {m.senderName}님이 대화방을 나갔습니다
+                          </div>
+                          <span style={{ fontSize: 11, color: "#aaa", marginTop: 4 }}>
+                            {formatTime(m.createdAt)}
+                          </span>
+                        </div>
+                      );
+                    }
                     return (
                       <div
                         key={m.messageId}

@@ -4,8 +4,10 @@ import com.kintai.dto.ConversationResponse;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.MessageResponse;
 import com.kintai.dto.MessageSendRequest;
+import com.kintai.entity.ConversationLeave;
 import com.kintai.entity.Employee;
 import com.kintai.entity.Message;
+import com.kintai.repository.ConversationLeaveRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.MessageRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,16 +15,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class MessengerService {
 
+    private static final String PREVIEW_PARTNER_LEFT = "님이 대화방을 나갔습니다";
+
     private final MessageRepository messageRepository;
     private final EmployeeRepository employeeRepository;
+    private final ConversationLeaveRepository conversationLeaveRepository;
 
     @Transactional(readOnly = true)
     public List<ConversationResponse> listConversations(Long myId) {
+        Set<Long> hiddenPartners = conversationLeaveRepository.findByLeaverId(myId).stream()
+                .map(ConversationLeave::getPartnerId)
+                .collect(Collectors.toSet());
+
         List<Message> all = messageRepository.findAllByParticipant(myId);
 
         // 相手IDごとに最新メッセージとグループ化
@@ -33,6 +43,10 @@ public class MessengerService {
             Long partnerId = m.getSender().getEmployeeId().equals(myId)
                     ? m.getReceiver().getEmployeeId()
                     : m.getSender().getEmployeeId();
+
+            if (hiddenPartners.contains(partnerId)) {
+                continue;
+            }
 
             lastByPartner.putIfAbsent(partnerId, m); // already DESC order, first = latest
             if (!m.isRead() && m.getReceiver().getEmployeeId().equals(myId)) {
@@ -50,12 +64,19 @@ public class MessengerService {
                     return ConversationResponse.builder()
                             .partnerId(partnerId)
                             .partnerName(partner.getEmployeeName())
-                            .lastMessage(last.getContent())
+                            .lastMessage(lastMessagePreview(last))
                             .lastMessageAt(last.getCreatedAt())
                             .unreadCount(unreadByPartner.getOrDefault(partnerId, 0))
                             .build();
                 })
                 .toList();
+    }
+
+    private String lastMessagePreview(Message last) {
+        if (Message.SYSTEM_TYPE_PARTNER_LEFT.equals(last.getSystemType())) {
+            return last.getSender().getEmployeeName() + PREVIEW_PARTNER_LEFT;
+        }
+        return last.getContent();
     }
 
     @Transactional
@@ -84,12 +105,46 @@ public class MessengerService {
                 .content(content)
                 .build();
         messageRepository.save(m);
+
+        // どちらかが一度「退出」していても、新規メッセージで会話を復帰
+        conversationLeaveRepository.deleteByLeaverIdAndPartnerId(sender.getEmployeeId(), receiver.getEmployeeId());
+        conversationLeaveRepository.deleteByLeaverIdAndPartnerId(receiver.getEmployeeId(), sender.getEmployeeId());
+
         return toResponse(m);
     }
 
     @Transactional(readOnly = true)
     public long getUnreadCount(Long myId) {
         return messageRepository.countUnread(myId);
+    }
+
+    /**
+     * 自分だけ会話一覧から外し、相手側には履歴を残して「退出」システムメッセージを送る。
+     */
+    @Transactional
+    public void leaveConversation(Long myId, Long partnerId) {
+        if (partnerId == null) throw new IllegalArgumentException("相手を指定してください。");
+        if (myId.equals(partnerId)) throw new IllegalArgumentException("無効な指定です。");
+        findEmployee(partnerId);
+        if (conversationLeaveRepository.existsByLeaverIdAndPartnerId(myId, partnerId)) {
+            return;
+        }
+
+        Employee me = findEmployee(myId);
+        Employee partner = findEmployee(partnerId);
+
+        conversationLeaveRepository.save(ConversationLeave.builder()
+                .leaverId(myId)
+                .partnerId(partnerId)
+                .build());
+
+        Message system = Message.builder()
+                .sender(me)
+                .receiver(partner)
+                .content("")
+                .systemType(Message.SYSTEM_TYPE_PARTNER_LEFT)
+                .build();
+        messageRepository.save(system);
     }
 
     private Employee findEmployee(Long id) {
@@ -105,6 +160,7 @@ public class MessengerService {
                 .receiverId(m.getReceiver().getEmployeeId())
                 .receiverName(m.getReceiver().getEmployeeName())
                 .content(m.getContent())
+                .systemType(m.getSystemType())
                 .read(m.isRead())
                 .createdAt(m.getCreatedAt())
                 .build();
