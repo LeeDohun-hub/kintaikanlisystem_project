@@ -56,6 +56,19 @@ public class VacationController {
 
     // ── 管理者向け ──────────────────────────────────────────────
 
+    /** 申請削除（管理者） */
+    @DeleteMapping("/{requestId}/admin")
+    public ResponseEntity<?> adminDelete(@PathVariable("requestId") Long requestId, HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            vacationService.adminDelete(user, requestId);
+            return ApiResponses.message("申請を削除しました。");
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
     /** 全申請一覧（?status=PENDING など） */
     @GetMapping
     public ResponseEntity<?> allRequests(

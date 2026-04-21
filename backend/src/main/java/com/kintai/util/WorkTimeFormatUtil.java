@@ -13,4 +13,11 @@ public final class WorkTimeFormatUtil {
         int mm = m % 60;
         return h + ":" + String.format("%02d", mm);
     }
+
+    public static String minutesToHm(long totalMinutes) {
+        long m = Math.max(0L, totalMinutes);
+        long h = m / 60L;
+        long mm = m % 60L;
+        return h + ":" + String.format("%02d", mm);
+    }
 }

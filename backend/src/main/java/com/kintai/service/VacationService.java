@@ -22,6 +22,7 @@ import java.util.List;
 public class VacationService {
 
     private static final int REASON_MAX_LEN = 500;
+    private static final int MAX_RANGE_DAYS = 31;
     private static final String MSG_VACATION_TYPE = "休暇区分が正しくありません。（FULL / HALF_AM / HALF_PM）";
     private static final String MSG_STATUS_FILTER = "statusの値が不正です。";
     private static final String MSG_PENDING_APPROVE = "申請中の休暇申請のみ承認できます。";
@@ -33,23 +34,56 @@ public class VacationService {
     // ── 社員向け ────────────────────────────────────────────────
 
     @Transactional
-    public VacationRequestResponse submit(LoginResponse loginUser, VacationSubmitRequest req) {
-        validateSubmitDates(req.getVacationDate());
+    public Object submit(LoginResponse loginUser, VacationSubmitRequest req) {
         VacationType type = parseVacationType(req.getVacationType());
-        assertNoDuplicateActiveRequest(loginUser.getId(), req.getVacationDate());
         String reason = normalizeOptionalBounded(req.getReason(), REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
 
         Employee employee = findEmployee(loginUser.getId());
-        VacationRequest saved = vacationRequestRepository.save(
-                VacationRequest.builder()
-                        .employee(employee)
-                        .vacationType(type)
-                        .vacationDate(req.getVacationDate())
-                        .reason(reason)
-                        .status(VacationStatus.PENDING)
-                        .build()
-        );
-        return toResponse(saved);
+
+        LocalDate start = req.getVacationStartDate();
+        LocalDate end = req.getVacationEndDate();
+        if (start == null && end == null) {
+            // 旧仕様（単日）
+            LocalDate single = req.getVacationDate();
+            validateSubmitDates(single);
+            assertNoDuplicateActiveRequest(loginUser.getId(), single);
+            VacationRequest saved = vacationRequestRepository.save(
+                    VacationRequest.builder()
+                            .employee(employee)
+                            .vacationType(type)
+                            .vacationDate(single)
+                            .reason(reason)
+                            .status(VacationStatus.PENDING)
+                            .build()
+            );
+            return toResponse(saved);
+        }
+
+        // 新仕様（区間）: 両方必須
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("休暇の開始日と終了日を入力してください。");
+        }
+        if (end.isBefore(start)) {
+            throw new IllegalArgumentException("終了日は開始日以降の日付を指定してください。");
+        }
+        long days = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
+        if (days > MAX_RANGE_DAYS) {
+            throw new IllegalArgumentException("一度に申請できる日数は最大" + MAX_RANGE_DAYS + "日です。");
+        }
+
+        java.util.List<VacationRequest> toSave = new java.util.ArrayList<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            validateSubmitDates(d);
+            assertNoDuplicateActiveRequest(loginUser.getId(), d);
+            toSave.add(VacationRequest.builder()
+                    .employee(employee)
+                    .vacationType(type)
+                    .vacationDate(d)
+                    .reason(reason)
+                    .status(VacationStatus.PENDING)
+                    .build());
+        }
+        return vacationRequestRepository.saveAll(toSave).stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
@@ -67,6 +101,13 @@ public class VacationService {
     }
 
     // ── 管理者向け ──────────────────────────────────────────────
+
+    @Transactional
+    public void adminDelete(LoginResponse loginUser, Long requestId) {
+        requireAdmin(loginUser);
+        VacationRequest v = findRequest(requestId);
+        vacationRequestRepository.delete(v);
+    }
 
     @Transactional(readOnly = true)
     public List<VacationRequestResponse> getAllRequests(String statusFilter) {

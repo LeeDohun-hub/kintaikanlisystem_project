@@ -112,7 +112,7 @@ public class ReportController {
         title.setAlignment(Element.ALIGN_LEFT);
         doc.add(title);
         doc.add(new Paragraph(" ", normal));
-        doc.add(new Paragraph("総勤務時間(分): " + data.getTotalWorkMinutes(), normal));
+        doc.add(new Paragraph("総勤務時間(h): " + WorkTimeFormatUtil.minutesToHm(data.getTotalWorkMinutes()), normal));
         doc.add(new Paragraph(" ", normal));
         doc.add(new Paragraph(" ", normal));
 

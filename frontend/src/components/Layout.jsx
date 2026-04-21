@@ -54,7 +54,6 @@ const ADMIN_NAV = [
   { to: "/board",           label: "掲示板" },
   { to: "/messenger",       label: "社内メッセージ" },
   { to: "/vacation-manage", label: "休暇申請管理" },
-  { to: "/vacation",        label: "休暇申請" },
 ];
 
 function Layout() {

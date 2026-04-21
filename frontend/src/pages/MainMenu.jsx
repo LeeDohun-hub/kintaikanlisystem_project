@@ -69,11 +69,6 @@ export default function MainMenu() {
               desc="社員の休暇申請を承認・却下します。"
               badge={{ type: "admin", text: "管理者" }}
             />
-            <MenuCard
-              to="/vacation"
-              title="休暇申請"
-              desc="連次・半休を申請します。"
-            />
           </>
         ) : (
           <>
@@ -95,7 +90,7 @@ export default function MainMenu() {
             <MenuCard
               to="/vacation"
               title="休暇申請"
-              desc="連次・半休を申請します。"
+              desc="休暇を申請し、承認/却下ステータスを確認します。"
             />
           </>
         )}

@@ -10,6 +10,13 @@ const STATUS_COLOR = {
   REJECTED: { background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3" },
 };
 
+const TABS = [
+  { key: "",         label: "すべて" },
+  { key: "PENDING",  label: "申請中" },
+  { key: "APPROVED", label: "承認済" },
+  { key: "REJECTED", label: "却下"  },
+];
+
 function StatusBadge({ status }) {
   const style = STATUS_COLOR[status] || {};
   return (
@@ -23,13 +30,98 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function parseYmd(s) {
+  // s: "YYYY-MM-DD"
+  const [y, m, d] = String(s).split("-").map((n) => Number(n));
+  return new Date(y, (m || 1) - 1, d || 1);
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function sameDay(a, b) {
+  return a.getFullYear() === b.getFullYear()
+    && a.getMonth() === b.getMonth()
+    && a.getDate() === b.getDate();
+}
+
+function normalizeField(v) {
+  return v == null ? "" : String(v);
+}
+
+function buildGroupKey(r) {
+  // createdAt 포함: 같은 연속 날짜라도 "다른 신청"을 합치지 않기 위한 안전장치
+  // (구간 신청은 saveAll로 거의 같은 createdAt으로 생성됨)
+  const created = r.createdAt ? new Date(r.createdAt).toISOString().slice(0, 16) : ""; // 분 단위
+  return [
+    normalizeField(r.vacationType),
+    normalizeField(r.reason),
+    normalizeField(r.status),
+    normalizeField(r.approvedById),
+    normalizeField(r.rejectReason),
+    created,
+  ].join("|");
+}
+
+function groupConsecutiveRequests(list) {
+  const sorted = [...list].sort((a, b) => {
+    const ad = parseYmd(a.vacationDate).getTime();
+    const bd = parseYmd(b.vacationDate).getTime();
+    if (ad !== bd) return ad - bd;
+    return String(a.requestId).localeCompare(String(b.requestId));
+  });
+
+  const groups = [];
+  for (const r of sorted) {
+    const key = buildGroupKey(r);
+    const last = groups[groups.length - 1];
+    if (!last || last.key !== key) {
+      groups.push({
+        key,
+        startDate: r.vacationDate,
+        endDate: r.vacationDate,
+        requestIds: [r.requestId],
+        sample: r,
+      });
+      continue;
+    }
+
+    const lastEnd = parseYmd(last.endDate);
+    const cur = parseYmd(r.vacationDate);
+    if (sameDay(cur, addDays(lastEnd, 1))) {
+      last.endDate = r.vacationDate;
+      last.requestIds.push(r.requestId);
+    } else {
+      groups.push({
+        key,
+        startDate: r.vacationDate,
+        endDate: r.vacationDate,
+        requestIds: [r.requestId],
+        sample: r,
+      });
+    }
+  }
+
+  // 화면은 최신이 위로 오도록 endDate 기준 내림차순
+  return groups.sort((a, b) => parseYmd(b.endDate).getTime() - parseYmd(a.endDate).getTime());
+}
+
 export default function VacationRequest() {
   const [requests, setRequests] = useState([]);
+  const [activeTab, setActiveTab] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const [form, setForm] = useState({ vacationType: "FULL", vacationDate: today(), reason: "" });
+  const [form, setForm] = useState({
+    vacationType: "FULL",
+    vacationStartDate: today(),
+    vacationEndDate: today(),
+    reason: "",
+  });
   const [submitting, setSubmitting] = useState(false);
 
   const load = useCallback(() => {
@@ -41,6 +133,11 @@ export default function VacationRequest() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  const filteredRequests = activeTab
+    ? requests.filter((r) => r.status === activeTab)
+    : requests;
+  const groupedRequests = groupConsecutiveRequests(filteredRequests);
 
   const onChange = (e) => {
     const { name, value } = e.target;
@@ -55,11 +152,12 @@ export default function VacationRequest() {
     try {
       await api.post("/vacations", {
         vacationType: form.vacationType,
-        vacationDate: form.vacationDate,
+        vacationStartDate: form.vacationStartDate,
+        vacationEndDate: form.vacationEndDate,
         reason: form.reason.trim() || undefined,
       });
       setSuccessMsg("休暇申請を送信しました。管理者の承認をお待ちください。");
-      setForm({ vacationType: "FULL", vacationDate: today(), reason: "" });
+      setForm({ vacationType: "FULL", vacationStartDate: today(), vacationEndDate: today(), reason: "" });
       load();
     } catch (err) {
       setError(err.response?.data?.error || "申請に失敗しました。");
@@ -68,12 +166,18 @@ export default function VacationRequest() {
     }
   };
 
-  const onCancel = async (requestId) => {
-    if (!window.confirm("この申請をキャンセルしますか？")) return;
+  const onCancel = async (requestIdOrIds) => {
+    const ids = Array.isArray(requestIdOrIds) ? requestIdOrIds : [requestIdOrIds];
+    if (!window.confirm(`この申請をキャンセルしますか？（${ids.length}件）`)) return;
     setError("");
     setSuccessMsg("");
     try {
-      await api.delete(`/vacations/${requestId}`);
+      // 区간 신청은 여러 건이므로 순차 취소
+      // eslint-disable-next-line no-restricted-syntax
+      for (const id of ids) {
+        // eslint-disable-next-line no-await-in-loop
+        await api.delete(`/vacations/${id}`);
+      }
       setSuccessMsg("申請をキャンセルしました。");
       load();
     } catch (err) {
@@ -86,7 +190,7 @@ export default function VacationRequest() {
       <h2 className="page-title">休暇申請</h2>
       <p className="page-subtitle">
         連続した日程の場合は日付ごとに個別に申請してください。
-        申請中の申請は管理者が承認するまでキャンセルできます。
+        申請中の申請は管理者が承認するまでキャンセルできます。承認/却下の結果もここで確認できます。
       </p>
 
       {error && <div className="error-msg">{error}</div>}
@@ -110,13 +214,24 @@ export default function VacationRequest() {
               </select>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>休暇日</label>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>開始日</label>
               <input
                 type="date"
-                name="vacationDate"
-                value={form.vacationDate}
+                name="vacationStartDate"
+                value={form.vacationStartDate}
                 onChange={onChange}
                 min={today()}
+                required
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>終了日</label>
+              <input
+                type="date"
+                name="vacationEndDate"
+                value={form.vacationEndDate}
+                onChange={onChange}
+                min={form.vacationStartDate || today()}
                 required
               />
             </div>
@@ -141,10 +256,34 @@ export default function VacationRequest() {
 
       {/* 申請一覧 */}
       <div className="card" style={{ overflowX: "auto" }}>
-        <h3 style={{ marginTop: 0 }}>申請履歴</h3>
+        <h3 style={{ marginTop: 0 }}>申請履歴（承認/却下ステータス）</h3>
+
+        {/* タブ */}
+        <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid #e0e0e0", paddingBottom: 0 }}>
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setActiveTab(t.key)}
+              style={{
+                padding: "8px 18px",
+                border: "none",
+                borderBottom: activeTab === t.key ? "2px solid #1a56db" : "2px solid transparent",
+                background: "none",
+                cursor: "pointer",
+                fontWeight: activeTab === t.key ? 700 : 400,
+                color: activeTab === t.key ? "#1a56db" : "#555",
+                fontSize: 14,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
         {loading ? (
           <p>読み込み中…</p>
-        ) : requests.length === 0 ? (
+        ) : groupedRequests.length === 0 ? (
           <p style={{ color: "#888", margin: 0 }}>申請履歴がありません。</p>
         ) : (
           <table className="data-table">
@@ -161,33 +300,46 @@ export default function VacationRequest() {
               </tr>
             </thead>
             <tbody>
-              {requests.map((r) => (
-                <tr key={r.requestId}>
-                  <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>{r.vacationDate}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{TYPE_LABEL[r.vacationType] ?? r.vacationType}</td>
-                  <td style={{ maxWidth: 200, wordBreak: "break-word" }}>{r.reason ?? "—"}</td>
-                  <td><StatusBadge status={r.status} /></td>
-                  <td>{r.approvedByName ?? "—"}</td>
-                  <td style={{ maxWidth: 200, wordBreak: "break-word", color: "#e53e3e" }}>
-                    {r.rejectReason ?? "—"}
-                  </td>
-                  <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#888" }}>
-                    {r.createdAt ? new Date(r.createdAt).toLocaleString("ja-JP") : ""}
-                  </td>
-                  <td>
-                    {r.status === "PENDING" && (
-                      <button
-                        type="button"
-                        className="secondary"
-                        style={{ padding: "3px 12px", fontSize: 12, color: "#e53e3e", borderColor: "#e53e3e" }}
-                        onClick={() => onCancel(r.requestId)}
-                      >
-                        取消
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {groupedRequests.map((g) => {
+                const r = g.sample;
+                const rangeText = g.startDate === g.endDate
+                  ? g.startDate
+                  : `${g.startDate} ~ ${g.endDate}`;
+                return (
+                  <tr key={`${g.key}-${g.startDate}-${g.endDate}`}>
+                    <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>
+                      {rangeText}
+                      {g.requestIds.length > 1 && (
+                        <span style={{ marginLeft: 8, fontSize: 12, color: "#888" }}>
+                          ({g.requestIds.length}日)
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>{TYPE_LABEL[r.vacationType] ?? r.vacationType}</td>
+                    <td style={{ maxWidth: 200, wordBreak: "break-word" }}>{r.reason ?? "—"}</td>
+                    <td><StatusBadge status={r.status} /></td>
+                    <td>{r.approvedByName ?? "—"}</td>
+                    <td style={{ maxWidth: 200, wordBreak: "break-word", color: "#e53e3e" }}>
+                      {r.rejectReason ?? "—"}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#888" }}>
+                      {r.createdAt ? new Date(r.createdAt).toLocaleString("ja-JP") : ""}
+                    </td>
+                    <td>
+                      {r.status === "PENDING" && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ padding: "3px 12px", fontSize: 12, color: "#e53e3e", borderColor: "#e53e3e" }}
+                          onClick={() => onCancel(g.requestIds)}
+                        >
+                          取消
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
