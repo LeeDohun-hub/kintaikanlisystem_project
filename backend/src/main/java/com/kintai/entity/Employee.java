@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -39,6 +40,10 @@ public class Employee {
     @Column(name = "active_flag", nullable = false)
     private Integer activeFlag;
 
+    /** 入社日（年休付与の起算日）。未指定時は登録日を使用。 */
+    @Column(name = "hire_date", nullable = false)
+    private LocalDate hireDate;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
@@ -57,6 +62,9 @@ public class Employee {
         updatedAt = now;
         if (activeFlag == null) {
             activeFlag = 1;
+        }
+        if (hireDate == null) {
+            hireDate = createdAt.toLocalDate();
         }
     }
 

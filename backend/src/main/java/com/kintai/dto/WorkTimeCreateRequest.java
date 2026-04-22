@@ -18,6 +18,9 @@ public class WorkTimeCreateRequest {
     private LocalTime endTime;
     private Integer breakMinutes;
 
+    /** 休日勤務日（管理者用）。未指定は false 扱い。 */
+    private Boolean isHoliday;
+
     /** 備考 (任意、最大500文字) */
     @Size(max = 500, message = "備考は500文字以下です。")
     private String remarks;

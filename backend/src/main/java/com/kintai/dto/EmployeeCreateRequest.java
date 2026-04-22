@@ -3,6 +3,7 @@ package com.kintai.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 public class EmployeeCreateRequest {
@@ -15,6 +16,9 @@ public class EmployeeCreateRequest {
     private BigDecimal hourlyCost;
     /** 1: 有効, 0: 無効 */
     private Integer activeFlag;
+
+    /** 入社日（年休付与の起算日） */
+    private LocalDate hireDate;
 
     /** ログインID（社員コードとは別。空白不可） */
     private String loginId;

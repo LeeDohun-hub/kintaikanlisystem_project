@@ -1,11 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import MonthPickerCard from "../components/MonthPickerCard";
+import AttendanceMetricsCharts from "../components/AttendanceMetricsCharts";
+import MonthCalendarRange from "../components/MonthCalendarRange";
 import { useYearMonthState } from "../hooks/useYearMonthState";
 import BackToMenuLink from "../components/BackToMenuLink";
 import { useAuth } from "../context/AuthContext";
 import { useEmployees } from "../hooks/useEmployees";
 import EmployeePicker from "../components/EmployeePicker";
 import { useWorkTimeByMonth } from "../hooks/useWorkTimeByMonth";
+import { useAttendanceMetrics } from "../hooks/useAttendanceMetrics";
 import { formatMinutesAsHm } from "../utils/timeFormat";
 
 const TAB_HISTORY = "history";
@@ -19,12 +22,18 @@ export default function ReportOutput() {
     useEmployees(isAdmin);
   const [employeeId, setEmployeeId] = useState("");
   const [activeTab, setActiveTab] = useState(TAB_HISTORY);
+  const [dateFilter, setDateFilter] = useState({ startDate: null, endDate: null }); // YYYY-MM-DD
 
   useEffect(() => {
     if (!isAdmin) return;
     if (employeeId !== "" || employees.length === 0) return;
     setEmployeeId(employees[0].employeeId);
   }, [isAdmin, employees, employeeId]);
+
+  useEffect(() => {
+    // 月が変わったらフィルタ解除（別月の選択日が残らないように）
+    setDateFilter({ startDate: null, endDate: null });
+  }, [month]);
 
   const selectedEmployee = useMemo(
     () => employees.find((e) => e.employeeId === employeeId) ?? null,
@@ -37,6 +46,81 @@ export default function ReportOutput() {
     employeeId !== "" ? employeeId : undefined,
     skipHistoryFetch,
   );
+
+  const {
+    metrics,
+    loading: metricsLoading,
+    error: metricsError,
+  } = useAttendanceMetrics(
+    month,
+    employeeId !== "" ? employeeId : undefined,
+    skipHistoryFetch,
+  );
+
+  const metricsByWorkId = useMemo(() => {
+    const map = new Map();
+    (metrics?.rows ?? []).forEach((row) => {
+      if (row.workId != null) map.set(Number(row.workId), row);
+    });
+    return map;
+  }, [metrics]);
+
+  const filteredMetrics = useMemo(() => {
+    if (!metrics) return metrics;
+    const { startDate, endDate } = dateFilter || {};
+    if (!startDate && !endDate) return metrics;
+
+    const lo = endDate ? (String(startDate) <= String(endDate) ? startDate : endDate) : startDate;
+    const hi = endDate ? (String(startDate) <= String(endDate) ? endDate : startDate) : startDate;
+
+    const rows = (metrics.rows || []).filter((r) => {
+      const d = r?.workDate;
+      if (!d) return false;
+      return String(lo) <= String(d) && String(d) <= String(hi);
+    });
+
+    const sum = (arr, key) =>
+      arr.reduce((acc, r) => acc + (Number(r?.[key]) || 0), 0);
+
+    const totalWorkMinutes = sum(rows, "workMinutes");
+    const totalOvertimeMinutes = sum(rows, "overtimeMinutes");
+    const totalHolidayWorkMinutes = sum(rows, "holidayWorkMinutes");
+    const totalNightWorkMinutes = sum(rows, "nightWorkMinutes");
+
+    const fatiguePointsMonthly =
+      totalOvertimeMinutes * 1.0 +
+      totalHolidayWorkMinutes * 1.5 +
+      totalNightWorkMinutes * 1.8 +
+      Math.max(0, totalOvertimeMinutes - 2700) * 0.5;
+
+    const std = Number(metrics.standardMonthlyMinutes) || 0;
+    const fatigueIndexMonthly = std > 0 ? (fatiguePointsMonthly / std) * 100.0 : 0;
+
+    return {
+      ...metrics,
+      rows,
+      summary: {
+        totalWorkMinutes,
+        totalOvertimeMinutes,
+        totalHolidayWorkMinutes,
+        totalNightWorkMinutes,
+        fatiguePointsMonthly: Math.round(fatiguePointsMonthly * 10000) / 10000,
+        fatigueIndexMonthly: Math.round(fatigueIndexMonthly * 10000) / 10000,
+      },
+    };
+  }, [metrics, dateFilter]);
+
+  const filteredHistoryRows = useMemo(() => {
+    const { startDate, endDate } = dateFilter || {};
+    if (!startDate && !endDate) return historyRows;
+    const lo = endDate ? (String(startDate) <= String(endDate) ? startDate : endDate) : startDate;
+    const hi = endDate ? (String(startDate) <= String(endDate) ? endDate : startDate) : startDate;
+    return (historyRows || []).filter((r) => {
+      const d = r?.workDate;
+      if (!d) return false;
+      return String(lo) <= String(d) && String(d) <= String(hi);
+    });
+  }, [historyRows, dateFilter]);
 
   const pdfUrl = useMemo(() => {
     const qs = new URLSearchParams({ month });
@@ -84,18 +168,37 @@ export default function ReportOutput() {
         </>
       ) : null}
 
-      <MonthPickerCard label="対象月" month={month} onChange={setMonth}>
-        {activeTab === TAB_PDF ? (
-          <button
-            type="button"
-            className="secondary"
-            disabled={!canPreview || empLoading}
-            onClick={() => window.open(pdfUrl, "_blank")}
-          >
-            新しいタブで開く
-          </button>
+      <div className="month-picker-with-charts">
+        <MonthPickerCard label="対象月" month={month} onChange={setMonth} actionsBelow>
+          {activeTab === TAB_PDF ? (
+            <button
+              type="button"
+              className="secondary"
+              disabled={!canPreview || empLoading}
+              onClick={() => window.open(pdfUrl, "_blank")}
+            >
+              新しいタブで開く
+            </button>
+          ) : null}
+          {activeTab === TAB_HISTORY ? (
+            <MonthCalendarRange
+              month={month}
+              startDate={dateFilter.startDate}
+              endDate={dateFilter.endDate}
+              onChange={setDateFilter}
+              disabled={skipHistoryFetch}
+            />
+          ) : null}
+        </MonthPickerCard>
+        {activeTab === TAB_HISTORY ? (
+          <AttendanceMetricsCharts
+            metrics={filteredMetrics}
+            loading={metricsLoading}
+            error={metricsError}
+            hidden={isAdmin && employeeId === ""}
+          />
         ) : null}
-      </MonthPickerCard>
+      </div>
 
       <div
         role="tablist"
@@ -151,27 +254,74 @@ export default function ReportOutput() {
                   <th>終業</th>
                   <th>休憩</th>
                   <th>実働(当日)</th>
+                  <th className="col-numeric">残業</th>
+                  <th className="col-numeric">深夜</th>
+                  <th className="col-numeric">休日勤</th>
                   <th>実働(累計)</th>
                   <th>備考</th>
                 </tr>
               </thead>
               <tbody>
-                {historyRows.length === 0 ? (
+                {filteredHistoryRows.length === 0 ? (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={10}>
                       {skipHistoryFetch ? "—" : "データがありません。"}
                     </td>
                   </tr>
                 ) : (
-                  historyRows.map((r, i) => (
+                  filteredHistoryRows.map((r, i) => (
                     <tr key={r.workId ?? i}>
-                      <td>{r.workDate}</td>
+                      <td>
+                        {r.workDate}
+                        {metricsByWorkId.get(Number(r.workId))?.holiday ? (
+                          <span
+                            title="休日勤務日"
+                            style={{
+                              marginLeft: 6,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "#c0392b",
+                              verticalAlign: "middle",
+                            }}
+                          >
+                            休
+                          </span>
+                        ) : null}
+                      </td>
                       <td>{r.startTime}</td>
                       <td>{r.endTime}</td>
                       <td>{formatMinutesAsHm(r.breakMinutes)}</td>
                       <td>
                         {r.dailyWorkHm ?? formatMinutesAsHm(r.workMinutes)}
                       </td>
+                      {(() => {
+                        const mx = metricsByWorkId.get(Number(r.workId));
+                        return (
+                          <>
+                            <td className="col-numeric">
+                              {mx
+                                ? formatMinutesAsHm(mx.overtimeMinutes ?? 0)
+                                : metricsLoading
+                                  ? "…"
+                                  : "—"}
+                            </td>
+                            <td className="col-numeric">
+                              {mx
+                                ? formatMinutesAsHm(mx.nightWorkMinutes ?? 0)
+                                : metricsLoading
+                                  ? "…"
+                                  : "—"}
+                            </td>
+                            <td className="col-numeric">
+                              {mx
+                                ? formatMinutesAsHm(mx.holidayWorkMinutes ?? 0)
+                                : metricsLoading
+                                  ? "…"
+                                  : "—"}
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td>{r.cumulativeWorkHm ?? "—"}</td>
                       <td style={{ maxWidth: 280, whiteSpace: "pre-wrap" }}>
                         {r.remarks ?? ""}

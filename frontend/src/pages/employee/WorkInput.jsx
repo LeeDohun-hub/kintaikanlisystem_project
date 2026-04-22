@@ -33,8 +33,10 @@ function WorkInput() {
     startTime: "09:00",
     endTime: "18:00",
     breakHm: "1:00",
+    isHoliday: false,
     remarks: "",
   });
+  const [outingStart, setOutingStart] = useState(null); // "HH:mm" | null
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
@@ -49,7 +51,46 @@ function WorkInput() {
   const [overwriteExisting, setOverwriteExisting] = useState(true);
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, type, value, checked } = e.target;
+    setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+  };
+
+  const nowHm = () => {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
+  const onPunchIn = () => {
+    setForm((p) => ({ ...p, workDate: today, startTime: nowHm() }));
+  };
+
+  const onPunchOut = () => {
+    setForm((p) => ({ ...p, workDate: today, endTime: nowHm() }));
+  };
+
+  const onOutingToggle = () => {
+    const t = nowHm();
+    if (!outingStart) {
+      setOutingStart(t);
+      setForm((p) => ({
+        ...p,
+        remarks: p.remarks ? `${p.remarks}\n[外出] ${t}〜` : `[外出] ${t}〜`,
+      }));
+      return;
+    }
+    const startM = parseHmToMinutes(outingStart);
+    const endM = parseHmToMinutes(t);
+    const delta = Number.isNaN(startM) || Number.isNaN(endM) ? 0 : Math.max(0, endM - startM);
+    const curBreak = parseHmToMinutes(form.breakHm);
+    const nextBreak = Number.isNaN(curBreak) ? delta : curBreak + delta;
+    setForm((p) => ({
+      ...p,
+      breakHm: formatMinutesAsHm(nextBreak),
+      remarks: (p.remarks || "").replace(/\[外出\]\s(\d{2}:\d{2})〜\s*$/m, `[外出] $1〜${t}`),
+    }));
+    setOutingStart(null);
   };
 
   const handleSubmit = async (e) => {
@@ -71,6 +112,7 @@ function WorkInput() {
         startTime: form.startTime,
         endTime: form.endTime,
         breakMinutes,
+        ...(isAdmin ? { isHoliday: !!form.isHoliday } : null),
         remarks: form.remarks.trim() || undefined,
       }, isAdmin ? employeeId : undefined);
       setSuccess("勤務情報を保存しました。");
@@ -116,6 +158,7 @@ function WorkInput() {
             existing?.breakMinutes != null
               ? formatMinutesAsHm(existing.breakMinutes)
               : "1:00",
+          isHoliday: !!existing?.isHoliday,
           remarks: existing?.remarks ?? "",
           _hasExisting: !!existing,
         });
@@ -228,6 +271,7 @@ function WorkInput() {
         startTime: r.startTime,
         endTime: r.endTime,
         breakMinutes: v.breakMinutes,
+        ...(isAdmin ? { isHoliday: !!r.isHoliday } : null),
         remarks: (r.remarks || "").trim() || undefined,
       });
     }
@@ -314,6 +358,22 @@ function WorkInput() {
 
       {mode === "daily" ? (
         <div className="card">
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+            <button type="button" className="primary" onClick={onPunchIn} style={{ background: "#16a34a" }}>
+              出勤
+            </button>
+            <button type="button" className="primary" onClick={onPunchOut} style={{ background: "#dc2626" }}>
+              退勤
+            </button>
+            <button type="button" className="primary" onClick={onOutingToggle} style={{ background: "#2563eb" }}>
+              {outingStart ? "外出→戻り" : "外出"}
+            </button>
+            {outingStart ? (
+              <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 700, alignSelf: "center" }}>
+                外出中: {outingStart}〜
+              </span>
+            ) : null}
+          </div>
           <form onSubmit={handleSubmit}>
             <div className="form-row">
               <div className="form-group">
@@ -361,6 +421,20 @@ function WorkInput() {
                   style={{ maxWidth: 120 }}
                 />
               </div>
+              {isAdmin ? (
+                <div className="form-group" style={{ minWidth: 140 }}>
+                  <label>休日勤務</label>
+                  <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <input
+                      type="checkbox"
+                      name="isHoliday"
+                      checked={!!form.isHoliday}
+                      onChange={handleChange}
+                    />
+                    <span style={{ fontSize: 13, color: "#2c3e50" }}>休日として登録</span>
+                  </label>
+                </div>
+              ) : null}
             </div>
 
             <div className="form-group">
@@ -485,6 +559,7 @@ function WorkInput() {
                     <th style={{ width: 120 }}>開始</th>
                     <th style={{ width: 120 }}>終了</th>
                     <th style={{ width: 120 }}>休憩(H:MM)</th>
+                    {isAdmin ? <th style={{ width: 120 }}>休日勤務</th> : null}
                     <th style={{ minWidth: 240 }}>備考</th>
                   </tr>
                 </thead>
@@ -524,6 +599,18 @@ function WorkInput() {
                           style={{ maxWidth: 110 }}
                         />
                       </td>
+                      {isAdmin ? (
+                        <td style={{ whiteSpace: "nowrap" }}>
+                          <label style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                            <input
+                              type="checkbox"
+                              checked={!!r.isHoliday}
+                              onChange={(e) => updateMonthlyCell(idx, "isHoliday", e.target.checked)}
+                            />
+                            <span style={{ fontSize: 13, color: "#2c3e50" }}>休日</span>
+                          </label>
+                        </td>
+                      ) : null}
                       <td>
                         <input
                           type="text"

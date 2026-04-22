@@ -27,6 +27,11 @@ public class WorkTime {
     @Column(name = "work_date", nullable = false)
     private LocalDate workDate;
 
+    /** 休日勤務日（管理者向け: 休日労働時間の集計） */
+    @Column(name = "is_holiday", nullable = false)
+    @Builder.Default
+    private boolean isHoliday = false;
+
     @Column(name = "start_time", nullable = false)
     private LocalTime startTime;
 

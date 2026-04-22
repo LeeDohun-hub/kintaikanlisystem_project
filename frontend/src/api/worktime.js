@@ -6,6 +6,13 @@ export function listWorkTimeByMonth(month, employeeId) {
   return api.get(`/worktime?${qs.toString()}`);
 }
 
+/** 残業・深夜・休日勤務・疲労指標（本人または管理者+社員指定） */
+export function fetchAttendanceMetrics(month, employeeId) {
+  const qs = new URLSearchParams({ month });
+  if (employeeId != null && employeeId !== "") qs.set("employeeId", String(employeeId));
+  return api.get(`/worktime/metrics?${qs.toString()}`);
+}
+
 export function createWorkTime(payload, employeeId) {
   const params = {};
   if (employeeId != null && employeeId !== "") params.employeeId = employeeId;

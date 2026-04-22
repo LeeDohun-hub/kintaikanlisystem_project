@@ -23,6 +23,7 @@ public final class WorkTimeMapper {
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())
                 .breakMinutes(w.getBreakMinutes())
+                .isHoliday(w.isHoliday())
                 .workMinutes(daily)
                 .dailyWorkHm(WorkTimeFormatUtil.minutesToHm(daily))
                 .cumulativeWorkHm(WorkTimeFormatUtil.minutesToHm(cumulativeMinutesInMonth))

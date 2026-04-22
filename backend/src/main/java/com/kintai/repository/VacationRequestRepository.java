@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -29,4 +30,28 @@ public interface VacationRequestRepository extends JpaRepository<VacationRequest
     /** 同一社員・同一日に PENDING または APPROVED の申請が存在するか */
     boolean existsByEmployeeEmployeeIdAndVacationDateAndStatusIn(
             Long employeeId, LocalDate vacationDate, List<VacationStatus> statuses);
+
+    /**
+     * 年休消化数（FULL=1, HALF_*=0.5）を合計。
+     * status は PENDING/APPROVED を想定し、付与日以降の申請を対象とする。
+     */
+    @Query("""
+            SELECT COALESCE(SUM(
+              CASE
+                WHEN v.vacationType = com.kintai.entity.VacationType.FULL THEN 1.0
+                WHEN v.vacationType = com.kintai.entity.VacationType.HALF_AM THEN 0.5
+                WHEN v.vacationType = com.kintai.entity.VacationType.HALF_PM THEN 0.5
+                ELSE 0.0
+              END
+            ), 0.0)
+            FROM VacationRequest v
+            WHERE v.employee.employeeId = :employeeId
+              AND v.vacationDate >= :fromDate
+              AND v.status IN :statuses
+            """)
+    BigDecimal sumUsedDays(
+            @Param("employeeId") Long employeeId,
+            @Param("fromDate") LocalDate fromDate,
+            @Param("statuses") List<VacationStatus> statuses
+    );
 }

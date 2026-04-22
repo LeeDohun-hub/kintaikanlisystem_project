@@ -4,9 +4,11 @@ import com.kintai.auth.AdminOnly;
 import com.kintai.dto.ImportAttendanceResponse;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.SendMonthlyReportRequest;
+import com.kintai.dto.AdminAttendanceMetricsResponse;
 import com.kintai.dto.WorkTimeBulkRequest;
 import com.kintai.dto.WorkTimeCreateRequest;
 import com.kintai.dto.WorkTimeResponse;
+import com.kintai.service.AdminAttendanceMetricsService;
 import com.kintai.service.AttendanceImportService;
 import com.kintai.service.AttendanceReportEmailService;
 import com.kintai.service.WorkTimeService;
@@ -15,6 +17,7 @@ import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -28,6 +31,7 @@ import java.util.List;
 public class WorkTimeController {
 
     private final WorkTimeService workTimeService;
+    private final AdminAttendanceMetricsService adminAttendanceMetricsService;
     private final AttendanceImportService attendanceImportService;
     private final AttendanceReportEmailService attendanceReportEmailService;
 
@@ -57,6 +61,36 @@ public class WorkTimeController {
         }
     }
 
+    /**
+     * 残業・深夜・休日勤務・疲労指標（ログイン中の社員本人、または管理者が指定社員）。
+     */
+    @GetMapping("/metrics")
+    public ResponseEntity<?> attendanceMetrics(
+            @RequestParam("month") String month,
+            @RequestParam(value = "employeeId", required = false) Long employeeId,
+            @RequestParam(value = "standardMonthlyMinutes", required = false) Integer standardMonthlyMinutes,
+            HttpSession session
+    ) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) {
+            return ApiResponses.unauthorized();
+        }
+        if (!"ADMIN".equals(user.getRole())) {
+            if (employeeId != null && !employeeId.equals(user.getId())) {
+                return ApiResponses.error(HttpStatus.FORBIDDEN, "他の社員の指標は参照できません。");
+            }
+        }
+        try {
+            Long targetId = targetEmployeeId(user, employeeId);
+            AdminAttendanceMetricsResponse body = adminAttendanceMetricsService.build(month, targetId, standardMonthlyMinutes);
+            return ResponseEntity.ok(body);
+        } catch (DateTimeParseException e) {
+            return ApiResponses.badRequest("月の形式が正しくありません。（YYYY-MM）");
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> create(
             @Valid @RequestBody WorkTimeCreateRequest request,
@@ -66,6 +100,10 @@ public class WorkTimeController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
+        }
+        // 休日勤務フラグは管理者のみ設定可（一般社員は無視）
+        if (!"ADMIN".equals(user.getRole())) {
+            request.setIsHoliday(null);
         }
         try {
             Long targetId = targetEmployeeId(user, employeeId);
@@ -87,6 +125,9 @@ public class WorkTimeController {
     ) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
+        if (!"ADMIN".equals(user.getRole()) && request != null && request.getItems() != null) {
+            request.getItems().forEach(i -> { if (i != null) i.setIsHoliday(null); });
+        }
         try {
             Long targetId = targetEmployeeId(user, employeeId);
             ImportAttendanceResponse res = workTimeService.bulkUpsert(
@@ -109,6 +150,10 @@ public class WorkTimeController {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) {
             return ApiResponses.unauthorized();
+        }
+        // 休日勤務フラグは管理者のみ設定可（一般社員は無視）
+        if (!"ADMIN".equals(user.getRole())) {
+            request.setIsHoliday(null);
         }
         try {
             Long targetId = targetEmployeeId(user, employeeId);

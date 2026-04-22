@@ -35,6 +35,9 @@ public class WorkTimeResponse {
 
     private Integer breakMinutes;
 
+    /** 休日勤務日（管理者用・表示用） */
+    private boolean isHoliday;
+
     /** 日次実労働（分）— 集計・API 互換用 */
     private Integer workMinutes;
 

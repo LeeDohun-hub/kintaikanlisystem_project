@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../../api/api";
 import BackToMenuLink from "../../components/BackToMenuLink";
+import { useLeaveBalance } from "../../hooks/useLeaveBalance";
 
 const TYPE_LABEL = { FULL: "全休", HALF_AM: "午前半休", HALF_PM: "午後半休" };
 const STATUS_LABEL = { PENDING: "申請中", APPROVED: "承認済", REJECTED: "却下" };
@@ -115,6 +116,7 @@ export default function VacationRequest() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
+  const { balance, loading: balanceLoading, error: balanceError, refetch: refetchBalance } = useLeaveBalance(false);
 
   const [form, setForm] = useState({
     vacationType: "FULL",
@@ -159,6 +161,7 @@ export default function VacationRequest() {
       setSuccessMsg("休暇申請を送信しました。管理者の承認をお待ちください。");
       setForm({ vacationType: "FULL", vacationStartDate: today(), vacationEndDate: today(), reason: "" });
       load();
+      refetchBalance();
     } catch (err) {
       setError(err.response?.data?.error || "申請に失敗しました。");
     } finally {
@@ -180,6 +183,7 @@ export default function VacationRequest() {
       }
       setSuccessMsg("申請をキャンセルしました。");
       load();
+      refetchBalance();
     } catch (err) {
       setError(err.response?.data?.error || "キャンセルに失敗しました。");
     }
@@ -192,6 +196,21 @@ export default function VacationRequest() {
         連続した日程の場合は日付ごとに個別に申請してください。
         申請中の申請は管理者が承認するまでキャンセルできます。承認/却下の結果もここで確認できます。
       </p>
+
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ fontWeight: 700, color: "#2c3e50", marginBottom: 6 }}>年休残数</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "#2c3e50" }}>
+          {balanceLoading ? "読み込み中…" : balanceError ? "—" : (balance?.remainingDays ?? "—")}
+        </div>
+        {!balanceLoading && !balanceError && balance ? (
+          <div style={{ fontSize: 12, color: "#7f8c8d", marginTop: 4 }}>
+            付与日: {balance?.grantDate ?? "—"} / 使用: {balance?.usedDays ?? "—"} / 付与数: {balance?.grantedDays ?? "—"}
+          </div>
+        ) : null}
+        {balanceError ? (
+          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>{balanceError}</div>
+        ) : null}
+      </div>
 
       {error && <div className="error-msg">{error}</div>}
       {successMsg && (

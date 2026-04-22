@@ -4,6 +4,7 @@ import com.kintai.dto.LoginResponse;
 import com.kintai.dto.VacationRejectRequest;
 import com.kintai.dto.VacationRequestResponse;
 import com.kintai.dto.VacationSubmitRequest;
+import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.entity.Employee;
 import com.kintai.entity.VacationRequest;
 import com.kintai.entity.VacationStatus;
@@ -14,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -30,6 +32,7 @@ public class VacationService {
 
     private final VacationRequestRepository vacationRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final LeaveBalanceService leaveBalanceService;
 
     // ── 社員向け ────────────────────────────────────────────────
 
@@ -39,6 +42,9 @@ public class VacationService {
         String reason = normalizeOptionalBounded(req.getReason(), REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
 
         Employee employee = findEmployee(loginUser.getId());
+
+        // 残数チェック（6ヶ月付与前/残数不足は申請不可）
+        ensureEnoughLeave(loginUser.getId(), type);
 
         LocalDate start = req.getVacationStartDate();
         LocalDate end = req.getVacationEndDate();
@@ -125,6 +131,10 @@ public class VacationService {
         requireAdmin(loginUser);
         VacationRequest v = findRequest(requestId);
         Employee approver = findEmployee(loginUser.getId());
+
+        // 承認直前にも残数チェック（同時申請対策）
+        ensureEnoughLeave(v.getEmployee().getEmployeeId(), v.getVacationType());
+
         v.applyApproval(approver, MSG_PENDING_APPROVE);
         return toResponse(vacationRequestRepository.save(v));
     }
@@ -197,6 +207,20 @@ public class VacationService {
     private void requireAdmin(LoginResponse user) {
         if (!"ADMIN".equals(user.getRole())) {
             throw new IllegalArgumentException("管理者のみ実行できます。");
+        }
+    }
+
+    private void ensureEnoughLeave(Long employeeId, VacationType type) {
+        BigDecimal need = switch (type) {
+            case FULL -> new BigDecimal("1.0");
+            case HALF_AM, HALF_PM -> new BigDecimal("0.5");
+        };
+        LeaveBalanceResponse bal = leaveBalanceService.forEmployee(employeeId, LocalDate.now());
+        if (!bal.isGranted()) {
+            throw new IllegalArgumentException("入社から6ヶ月経過後に年休が付与されます。現在は申請できません。");
+        }
+        if (bal.getRemainingDays() == null || bal.getRemainingDays().compareTo(need) < 0) {
+            throw new IllegalArgumentException("年休残数が不足しています。（残り: " + bal.getRemainingDays() + "）");
         }
     }
 

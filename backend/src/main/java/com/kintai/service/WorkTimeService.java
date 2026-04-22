@@ -53,6 +53,7 @@ public class WorkTimeService {
         WorkTime entity = WorkTime.builder()
                 .employeeId(userId)
                 .workDate(req.getWorkDate())
+                .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
                 .startTime(req.getStartTime())
                 .endTime(req.getEndTime())
                 .breakMinutes(breakMins)
@@ -133,6 +134,7 @@ public class WorkTimeService {
                         throw new IllegalArgumentException("同一勤務日のデータが既に登録されています。");
                     }
                     WorkTime w = existing.get();
+                    w.setHoliday(Boolean.TRUE.equals(req.getIsHoliday()));
                     w.setStartTime(req.getStartTime());
                     w.setEndTime(req.getEndTime());
                     w.setBreakMinutes(breakMins);
@@ -143,6 +145,7 @@ public class WorkTimeService {
                     toInsert.add(WorkTime.builder()
                             .employeeId(userId)
                             .workDate(req.getWorkDate())
+                            .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
                             .startTime(req.getStartTime())
                             .endTime(req.getEndTime())
                             .breakMinutes(breakMins)
@@ -194,6 +197,7 @@ public class WorkTimeService {
             remarks = null;
         }
         w.setWorkDate(req.getWorkDate());
+        w.setHoliday(Boolean.TRUE.equals(req.getIsHoliday()));
         w.setStartTime(req.getStartTime());
         w.setEndTime(req.getEndTime());
         w.setBreakMinutes(breakMins);

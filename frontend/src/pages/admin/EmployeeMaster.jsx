@@ -20,6 +20,7 @@ const EMPTY_FORM = {
   department: "",
   hourlyCost: "",
   activeFlag: 1,
+  hireDate: "",
   loginId: "",
   password: "",
   confirmPassword: "",
@@ -162,6 +163,7 @@ function EmployeeMaster() {
           ? String(row.hourlyCost)
           : "",
       activeFlag: row.activeFlag != null ? Number(row.activeFlag) : 1,
+      hireDate: row.hireDate ?? "",
       loginId: row.loginId ?? "",
       password: "",
       confirmPassword: "",
@@ -271,6 +273,7 @@ function EmployeeMaster() {
         department: form.department || undefined,
         hourlyCost: form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
         activeFlag: Number(form.activeFlag),
+        hireDate: form.hireDate,
         loginId: form.loginId,
         password: form.password,
         confirmPassword: form.confirmPassword,
@@ -357,6 +360,7 @@ function EmployeeMaster() {
         department: form.department || undefined,
         hourlyCost: form.hourlyCost === "" ? undefined : Number(form.hourlyCost),
         activeFlag: Number(form.activeFlag),
+        hireDate: form.hireDate,
         loginId: hasLoginAccount ? form.loginId.trim() : undefined,
         password: pwTouched ? pw : undefined,
         confirmPassword: pwTouched ? cpw : undefined,
@@ -471,6 +475,9 @@ function EmployeeMaster() {
         <h3 style={{ marginTop: 0 }}></h3>
         <form onSubmit={onSubmit}>
           <div className="form-row">
+          <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
+              社員コード
+            </label>
             <input
               name="employeeCode"
               value={form.employeeCode}
@@ -480,7 +487,11 @@ function EmployeeMaster() {
               maxLength={8}
               pattern="[A-Za-z0-9]{8}"
               title="8文字の英数字"
+              style={{ minWidth: 210 }}
             />
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
+              社員名
+            </label>
             <input
               name="employeeName"
               value={form.employeeName}
@@ -490,8 +501,22 @@ function EmployeeMaster() {
               maxLength={50}
             />
           </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
+              入社日
+            </label>
+            <input
+              name="hireDate"
+              type="date"
+              value={form.hireDate}
+              onChange={onChange}
+              required
+              aria-label="入社日"
+              style={{ width: 128 }}
+            />
+          </div>
           <p>
-            社員コードは8文字の英数字。パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
+            パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
           </p>
           <div className="form-row">
             <input
@@ -502,12 +527,12 @@ function EmployeeMaster() {
               placeholder="招待メール送付先（入力すると登録後に自動送信）"
               maxLength={254}
               autoComplete="off"
-              style={{ flex: "1 1 100%" }}
+              style={{ flex: "1 1 25%", minWidth: 260, maxWidth: 420 }}
             />
-            <p>
-              メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
-            </p>
           </div>
+          <p>
+            メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
+          </p>
           <div className="form-row">
             <input
               name="loginId"
@@ -565,6 +590,7 @@ function EmployeeMaster() {
               placeholder="所属（任意）"
               maxLength={50}
             />
+            
             <input
               name="hourlyCost"
               type="number"
@@ -707,6 +733,7 @@ function EmployeeMaster() {
                 <th>ログインID</th>
                 <th>e-mail</th>
                 <th>氏名</th>
+                <th>入社日</th>
                 <th>所属</th>
                 <th>時給原価</th>
                 <th>有効</th>
@@ -715,7 +742,7 @@ function EmployeeMaster() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={10}>データがありません。</td>
+                  <td colSpan={11}>データがありません。</td>
                 </tr>
               ) : (
                 rows.map((r) => {
@@ -746,6 +773,7 @@ function EmployeeMaster() {
                         {r.inviteEmail?.trim() ? r.inviteEmail : "—"}
                       </td>
                       <td>{r.employeeName}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.hireDate ?? "—"}</td>
                       <td>{r.department ?? ""}</td>
                       <td>{r.hourlyCost ?? ""}</td>
                       <td>{r.activeFlag}</td>

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Data
 @Builder
@@ -21,6 +22,7 @@ public class EmployeeSummaryResponse {
     private String inviteEmail;
     private BigDecimal hourlyCost;
     private Integer activeFlag;
+    private LocalDate hireDate;
 
     private String loginId;
     private String role;

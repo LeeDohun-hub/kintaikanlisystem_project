@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
@@ -81,6 +82,14 @@ public class EmployeeMasterService {
             throw new IllegalArgumentException("activeFlag は 0 または 1 である必要があります。");
         }
 
+        LocalDate hireDate = req.getHireDate();
+        if (hireDate == null) {
+            throw new IllegalArgumentException("入社日を入力してください。");
+        }
+        if (hireDate.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("入社日に未来の日付は指定できません。");
+        }
+
         String invite = normalizeOptionalInviteEmail(req.getInviteEmail());
         validateOptionalInviteEmail(invite);
 
@@ -91,6 +100,7 @@ public class EmployeeMasterService {
                 .inviteEmail(invite)
                 .hourlyCost(hourly)
                 .activeFlag(active)
+                .hireDate(hireDate)
                 .build();
         employeeRepository.save(e);
 
@@ -131,6 +141,14 @@ public class EmployeeMasterService {
             throw new IllegalArgumentException("activeFlag は 0 または 1 である必要があります。");
         }
 
+        LocalDate hireDate = req.getHireDate();
+        if (hireDate == null) {
+            throw new IllegalArgumentException("入社日を入力してください。");
+        }
+        if (hireDate.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("入社日に未来の日付は指定できません。");
+        }
+
         String invite = normalizeOptionalInviteEmail(req.getInviteEmail());
         validateOptionalInviteEmail(invite);
 
@@ -140,6 +158,7 @@ public class EmployeeMasterService {
         e.setInviteEmail(invite);
         e.setHourlyCost(hourly);
         e.setActiveFlag(active);
+        e.setHireDate(hireDate);
         employeeRepository.save(e);
 
         Optional<EmployeeAccount> accOpt = employeeAccountRepository.findById(employeeId);
