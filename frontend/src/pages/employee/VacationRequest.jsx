@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import api from "../../api/api";
 import BackToMenuLink from "../../components/BackToMenuLink";
+import { useAuth } from "../../context/AuthContext";
 import { useLeaveBalance } from "../../hooks/useLeaveBalance";
 
 const TYPE_LABEL = { FULL: "全休", HALF_AM: "午前半休", HALF_PM: "午後半休" };
@@ -111,12 +112,14 @@ function groupConsecutiveRequests(list) {
 }
 
 export default function VacationRequest() {
+  const { user } = useAuth();
+  const skipLeaveBalance = user?.role === "ADMIN";
   const [requests, setRequests] = useState([]);
   const [activeTab, setActiveTab] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  const { balance, loading: balanceLoading, error: balanceError, refetch: refetchBalance } = useLeaveBalance(false);
+  const { balance, loading: balanceLoading, error: balanceError, refetch: refetchBalance } = useLeaveBalance(skipLeaveBalance);
 
   const [form, setForm] = useState({
     vacationType: "FULL",
@@ -197,20 +200,39 @@ export default function VacationRequest() {
         申請中の申請は管理者が承認するまでキャンセルできます。承認/却下の結果もここで確認できます。
       </p>
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, color: "#2c3e50", marginBottom: 6 }}>年休残数</div>
-        <div style={{ fontSize: 14, fontWeight: 700, color: "#2c3e50" }}>
-          {balanceLoading ? "読み込み中…" : balanceError ? "—" : (balance?.remainingDays ?? "—")}
+      {!skipLeaveBalance && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, color: "#2c3e50", marginBottom: 6 }}>年休残数</div>
+          {balanceLoading ? (
+            <div style={{ fontSize: 14, color: "#888" }}>読み込み中…</div>
+          ) : balanceError ? (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>{balanceError}</div>
+          ) : balance ? (
+            <>
+              {balance.granted ? (
+                <>
+                  <div style={{ fontSize: 22, fontWeight: 700, color: "#1a56db" }}>
+                    {balance.remainingDays} <span style={{ fontSize: 14, fontWeight: 400, color: "#555" }}>日</span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "#7f8c8d", marginTop: 6, display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
+                    <span>付与日: {balance.grantDate}</span>
+                    <span>
+                      付与数: {balance.monthsSinceGrant > 0
+                        ? `10 + ${balance.monthsSinceGrant}ヶ月 = ${balance.grantedDays}日`
+                        : `${balance.grantedDays}日`}
+                    </span>
+                    <span>使用済: {balance.usedDays}日</span>
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontSize: 13, color: "#b45309", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 6, padding: "8px 12px", marginTop: 4 }}>
+                  入社から6ヶ月経過後（{balance.grantDate}）に年休10日が付与されます。
+                </div>
+              )}
+            </>
+          ) : null}
         </div>
-        {!balanceLoading && !balanceError && balance ? (
-          <div style={{ fontSize: 12, color: "#7f8c8d", marginTop: 4 }}>
-            付与日: {balance?.grantDate ?? "—"} / 使用: {balance?.usedDays ?? "—"} / 付与数: {balance?.grantedDays ?? "—"}
-          </div>
-        ) : null}
-        {balanceError ? (
-          <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c" }}>{balanceError}</div>
-        ) : null}
-      </div>
+      )}
 
       {error && <div className="error-msg">{error}</div>}
       {successMsg && (

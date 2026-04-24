@@ -27,5 +27,10 @@ public class EmployeeCreateRequest {
     private String confirmPassword;
     /** ADMIN | EMPLOYEE */
     private String role;
+
+    private String address;
+    private String phoneNumber;
+    private java.time.LocalDate birthDate;
+    private String gender;
 }
 

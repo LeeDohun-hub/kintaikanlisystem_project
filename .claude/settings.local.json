@@ -28,7 +28,12 @@
       "Bash(./gradlew flywayRepair)",
       "Bash(where mysql *)",
       "Read(//c/Program Files/MySQL/MySQL Server 8.0/bin/**)",
-      "Bash(/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe *)"
+      "Bash(/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe *)",
+      "Bash(xargs basename *)",
+      "Bash(./mvnw compile *)",
+      "Bash(./gradlew compileJava -q)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)"
     ]
   }
 }

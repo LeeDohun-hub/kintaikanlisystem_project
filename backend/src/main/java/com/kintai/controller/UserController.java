@@ -2,6 +2,8 @@ package com.kintai.controller;
 
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.UserSummaryResponse;
+import com.kintai.entity.EmployeeAccount;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
@@ -13,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 全認証ユーザー向けの社員一覧（メッセージ送信先選択などに使用）。
@@ -24,11 +28,18 @@ import java.util.List;
 public class UserController {
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeAccountRepository employeeAccountRepository;
 
     @GetMapping
     public ResponseEntity<?> list(HttpSession session) {
         LoginResponse me = LoginSessionSupport.requireAuthenticatedUser(session);
         if (me == null) return ApiResponses.unauthorized();
+
+        Map<Long, String> statusMap = employeeAccountRepository.findAll().stream()
+                .collect(Collectors.toMap(
+                        EmployeeAccount::getEmployeeId,
+                        acc -> acc.getCurrentStatus() != null ? acc.getCurrentStatus().name() : "PRESENT"
+                ));
 
         List<UserSummaryResponse> users = employeeRepository.findAll().stream()
                 .filter(e -> e.getActiveFlag() != null && e.getActiveFlag() == 1)
@@ -38,6 +49,8 @@ public class UserController {
                         .employeeId(e.getEmployeeId())
                         .employeeName(e.getEmployeeName())
                         .department(e.getDepartment())
+                        .status(statusMap.getOrDefault(e.getEmployeeId(), "PRESENT"))
+                        .photoFilename(e.getPhotoFilename())
                         .build())
                 .toList();
         return ResponseEntity.ok(users);

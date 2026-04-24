@@ -1,9 +1,12 @@
 package com.kintai.service;
 
 import com.kintai.entity.Employee;
+import com.kintai.entity.EmployeeAccount;
+import com.kintai.entity.Role;
 import com.kintai.entity.VacationRequest;
 import com.kintai.entity.VacationStatus;
 import com.kintai.entity.VacationType;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.VacationRequestRepository;
 import org.junit.jupiter.api.Test;
@@ -21,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class LeaveBalanceServiceTest {
 
     @Autowired EmployeeRepository employeeRepository;
+    @Autowired EmployeeAccountRepository employeeAccountRepository;
     @Autowired VacationRequestRepository vacationRequestRepository;
     @Autowired LeaveBalanceService leaveBalanceService;
 
@@ -55,11 +59,61 @@ class LeaveBalanceServiceTest {
         vacationRequestRepository.save(v1);
         vacationRequestRepository.save(v2);
 
+        // 付与日から0ヶ月: 10日
         var bal = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 7, 10));
         assertTrue(bal.isGranted());
         assertEquals(new BigDecimal("10.0"), bal.getGrantedDays());
+        assertEquals(0L, bal.getMonthsSinceGrant());
         assertEquals(new BigDecimal("1.5"), bal.getUsedDays());
         assertEquals(new BigDecimal("8.5"), bal.getRemainingDays());
+
+        // 付与日から1ヶ月後(8/1): 11日
+        var bal1m = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 8, 1));
+        assertEquals(new BigDecimal("11.0"), bal1m.getGrantedDays());
+        assertEquals(1L, bal1m.getMonthsSinceGrant());
+        assertEquals(new BigDecimal("9.5"), bal1m.getRemainingDays());
+
+        // 付与日から3ヶ月後(10/1): 13日
+        var bal3m = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 10, 1));
+        assertEquals(new BigDecimal("13.0"), bal3m.getGrantedDays());
+        assertEquals(3L, bal3m.getMonthsSinceGrant());
+    }
+
+    @Test
+    void admin_hasUnlimitedAnnualLeave_balanceIgnoresQuota() {
+        Employee e = employeeRepository.save(Employee.builder()
+                .employeeCode("ADM00001")
+                .employeeName("AdminUser")
+                .hourlyCost(new java.math.BigDecimal("1000.00"))
+                .activeFlag(1)
+                .hireDate(LocalDate.of(2026, 4, 15))
+                .build());
+        employeeAccountRepository.save(EmployeeAccount.builder()
+                .employee(e)
+                .loginId("admin_leave_test")
+                .passwordHash("{noop}x")
+                .role(Role.ADMIN)
+                .build());
+
+        var balEarly = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 5, 1));
+        assertTrue(balEarly.isGranted());
+        assertTrue(balEarly.isUnlimitedAnnualLeave());
+        assertNull(balEarly.getRemainingDays());
+        assertNull(balEarly.getGrantedDays());
+        assertEquals(new BigDecimal("0.0"), balEarly.getUsedDays());
+
+        VacationRequest usedEarly = VacationRequest.builder()
+                .employee(e)
+                .vacationType(VacationType.FULL)
+                .vacationDate(LocalDate.of(2026, 5, 10))
+                .status(VacationStatus.APPROVED)
+                .build();
+        vacationRequestRepository.save(usedEarly);
+
+        var balAfterUse = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 5, 20));
+        assertTrue(balAfterUse.isUnlimitedAnnualLeave());
+        assertNull(balAfterUse.getRemainingDays());
+        assertEquals(new BigDecimal("1.0"), balAfterUse.getUsedDays());
     }
 }
 

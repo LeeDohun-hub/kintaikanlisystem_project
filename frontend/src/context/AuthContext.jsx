@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import api from "../api/api";
+import { updateMyStatus } from "../api/status";
 
 const AuthContext = createContext(null);
 
@@ -26,8 +27,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const changeStatus = async (status) => {
+    await updateMyStatus(status);
+    setUser((prev) => prev ? { ...prev, status } : prev);
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, loading, changeStatus }}>
       {children}
     </AuthContext.Provider>
   );

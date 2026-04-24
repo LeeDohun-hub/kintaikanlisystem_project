@@ -16,6 +16,13 @@ public class WorkTimeCreateRequest {
     private LocalDate workDate;
     private LocalTime startTime;
     private LocalTime endTime;
+
+    /** 外出開始（任意） */
+    private LocalTime outingStartTime;
+
+    /** 外出復帰（任意） */
+    private LocalTime outingEndTime;
+
     private Integer breakMinutes;
 
     /** 休日勤務日（管理者用）。未指定は false 扱い。 */

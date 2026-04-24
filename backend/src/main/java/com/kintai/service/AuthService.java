@@ -50,6 +50,7 @@ public class AuthService {
                 .employeeCode(employee.getEmployeeCode())
                 .name(employee.getEmployeeName())
                 .role(account.getRole().name())
+                .status(account.getCurrentStatus() != null ? account.getCurrentStatus().name() : "PRESENT")
                 .build();
     }
 }

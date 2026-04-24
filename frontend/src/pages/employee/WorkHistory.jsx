@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import MonthPickerCard from "../../components/MonthPickerCard";
+import MonthCalendarRange from "../../components/MonthCalendarRange";
 import { useYearMonthState } from "../../hooks/useYearMonthState";
 import { useWorkTimeByMonth } from "../../hooks/useWorkTimeByMonth";
 import { useAttendanceMetrics } from "../../hooks/useAttendanceMetrics";
@@ -9,6 +10,7 @@ import AttendanceMetricsCharts from "../../components/AttendanceMetricsCharts";
 import { deleteWorkTime, updateWorkTime, sendMonthlyReport } from "../../api/worktime";
 import { getErrorMessage } from "../../api/error";
 import { formatMinutesAsHm, parseHmToMinutes } from "../../utils/timeFormat";
+import { validateOutingVsWork } from "../../utils/outingValidation";
 
 function WorkHistory() {
   const { user } = useAuth();
@@ -20,12 +22,13 @@ function WorkHistory() {
     error: metricsError,
     refetch: refetchMetrics,
   } = useAttendanceMetrics(month, undefined, false);
+  const skipLeaveBalance = user?.role === "ADMIN";
   const {
     balance,
     loading: balanceLoading,
     error: balanceError,
     refetch: refetchBalance,
-  } = useLeaveBalance(false);
+  } = useLeaveBalance(skipLeaveBalance);
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(null);
@@ -38,11 +41,28 @@ function WorkHistory() {
 
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState(null); // { type: "success"|"error", message: string }
+  const [dateFilter, setDateFilter] = useState({ startDate: null, endDate: null });
 
   const isMine = (r) =>
     user != null && Number(r.employeeId) === Number(user.id);
 
   const mineRows = useMemo(() => rows.filter(isMine), [rows, user]);
+
+  const filteredMineRows = useMemo(() => {
+    const { startDate, endDate } = dateFilter;
+    if (!startDate && !endDate) return mineRows;
+    const lo = endDate ? (startDate <= endDate ? startDate : endDate) : startDate;
+    const hi = endDate ? (startDate <= endDate ? endDate : startDate) : startDate;
+    return mineRows.filter((r) => r.workDate >= lo && r.workDate <= hi);
+  }, [mineRows, dateFilter]);
+
+  const filteredRows = useMemo(() => {
+    const { startDate, endDate } = dateFilter;
+    if (!startDate && !endDate) return rows;
+    const lo = endDate ? (startDate <= endDate ? startDate : endDate) : startDate;
+    const hi = endDate ? (startDate <= endDate ? endDate : startDate) : startDate;
+    return rows.filter((r) => r.workDate >= lo && r.workDate <= hi);
+  }, [rows, dateFilter]);
 
   const metricsByWorkId = useMemo(() => {
     const map = new Map();
@@ -55,6 +75,7 @@ function WorkHistory() {
   useEffect(() => {
     setSelectedIds(new Set());
     setSendResult(null);
+    setDateFilter({ startDate: null, endDate: null });
   }, [month]);
 
   useEffect(() => {
@@ -66,8 +87,8 @@ function WorkHistory() {
   }, [rows]);
 
   const allMineSelected =
-    mineRows.length > 0 && mineRows.every((r) => selectedIds.has(r.workId));
-  const selectedMineCount = mineRows.filter((r) =>
+    filteredMineRows.length > 0 && filteredMineRows.every((r) => selectedIds.has(r.workId));
+  const selectedMineCount = filteredMineRows.filter((r) =>
     selectedIds.has(r.workId),
   ).length;
 
@@ -75,8 +96,8 @@ function WorkHistory() {
     const el = selectAllRef.current;
     if (!el) return;
     el.indeterminate =
-      selectedMineCount > 0 && selectedMineCount < mineRows.length;
-  }, [selectedMineCount, mineRows.length]);
+      selectedMineCount > 0 && selectedMineCount < filteredMineRows.length;
+  }, [selectedMineCount, filteredMineRows.length]);
 
   const toggleSelect = useCallback((workId) => {
     setSelectedIds((prev) => {
@@ -88,7 +109,7 @@ function WorkHistory() {
   }, []);
 
   const toggleSelectAllMine = useCallback(() => {
-    const mineIds = mineRows.map((r) => r.workId);
+    const mineIds = filteredMineRows.map((r) => r.workId);
     setSelectedIds((prev) => {
       const allOn = mineIds.length > 0 && mineIds.every((id) => prev.has(id));
       const next = new Set(prev);
@@ -99,7 +120,7 @@ function WorkHistory() {
       }
       return next;
     });
-  }, [mineRows]);
+  }, [filteredMineRows]);
 
   const startEdit = (r) => {
     setEditingId(r.workId);
@@ -110,6 +131,8 @@ function WorkHistory() {
       endTime: (r.endTime || "").toString().slice(0, 5),
       breakHm: formatMinutesAsHm(r.breakMinutes),
       remarks: r.remarks ?? "",
+      outingStartTime: r.outingStartTime ? String(r.outingStartTime).slice(0, 5) : "",
+      outingEndTime: r.outingEndTime ? String(r.outingEndTime).slice(0, 5) : "",
     });
   };
 
@@ -136,15 +159,35 @@ function WorkHistory() {
       setFormError("休憩時間が正しい範囲かご確認ください。");
       return;
     }
+    const ov = validateOutingVsWork({
+      workStart: editForm.startTime,
+      workEnd: editForm.endTime,
+      outingStart: editForm.outingStartTime,
+      outingEnd: editForm.outingEndTime,
+    });
+    if (!ov.ok) {
+      setFormError(ov.message);
+      return;
+    }
+    const payload = {
+      workDate: editForm.workDate,
+      startTime: editForm.startTime,
+      endTime: editForm.endTime,
+      breakMinutes,
+      remarks: editForm.remarks.trim() || undefined,
+    };
+    const os = (editForm.outingStartTime || "").trim().slice(0, 5);
+    const oe = (editForm.outingEndTime || "").trim().slice(0, 5);
+    if (!os && !oe) {
+      payload.outingStartTime = null;
+      payload.outingEndTime = null;
+    } else {
+      if (os) payload.outingStartTime = os;
+      if (oe) payload.outingEndTime = oe;
+    }
     setSaving(true);
     try {
-      await updateWorkTime(editingId, {
-        workDate: editForm.workDate,
-        startTime: editForm.startTime,
-        endTime: editForm.endTime,
-        breakMinutes,
-        remarks: editForm.remarks.trim() || undefined,
-      });
+      await updateWorkTime(editingId, payload);
       cancelEdit();
       refetch();
       refetchMetrics();
@@ -175,7 +218,7 @@ function WorkHistory() {
   };
 
   const deleteSelected = async () => {
-    const ids = mineRows
+    const ids = filteredMineRows
       .map((r) => r.workId)
       .filter((id) => selectedIds.has(id));
     if (ids.length === 0) return;
@@ -221,31 +264,47 @@ function WorkHistory() {
     }
   };
 
-  const colCount = 12;
+  const colCount = 14;
 
   return (
     <div className="page-container">
       <h2 className="page-title">勤務履歴</h2>
-
       <div className="month-picker-with-charts">
-        <MonthPickerCard label="表示月" month={month} onChange={setMonth}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#2c3e50" }}>
-              年休残数:{" "}
-              {balanceLoading
-                ? "読み込み中…"
-                : balanceError
-                  ? "—"
-                  : (balance?.remainingDays ?? "—")}
-            </div>
-            {!balanceLoading && !balanceError && balance ? (
-              <div style={{ fontSize: 11, color: "#7f8c8d" }}>
-                付与日: {balance?.grantDate ?? "—"} / 使用: {balance?.usedDays ?? "—"}
-              </div>
-            ) : null}
-            {balanceError ? (
-              <div style={{ fontSize: 11, color: "#b91c1c" }}>{balanceError}</div>
-            ) : null}
+        <MonthPickerCard
+          label="表示月"
+          month={month}
+          onChange={setMonth}
+          actionsBelow
+          headerEnd={
+            skipLeaveBalance ? null : (
+              <>
+                <div className="work-history-leave-title">
+                  年休残数:{" "}
+                  {balanceLoading
+                    ? "読み込み中…"
+                    : balanceError
+                      ? "—"
+                      : (balance?.remainingDays ?? "—")}
+                </div>
+                {!balanceLoading && !balanceError && balance ? (
+                  <div className="work-history-leave-meta">
+                    付与日: {balance?.grantDate ?? "—"} / 使用: {balance?.usedDays ?? "—"}
+                  </div>
+                ) : null}
+                {balanceError ? (
+                  <div className="work-history-leave-error">{balanceError}</div>
+                ) : null}
+              </>
+            )
+          }
+        >
+          <div className="work-history-month-below">
+            <MonthCalendarRange
+              month={month}
+              startDate={dateFilter.startDate}
+              endDate={dateFilter.endDate}
+              onChange={setDateFilter}
+            />
           </div>
         </MonthPickerCard>
         <AttendanceMetricsCharts
@@ -304,7 +363,7 @@ function WorkHistory() {
                   type="checkbox"
                   checked={allMineSelected}
                   onChange={toggleSelectAllMine}
-                  disabled={mineRows.length === 0}
+                  disabled={filteredMineRows.length === 0}
                   title="自分の行をすべて選択"
                   aria-label="自分の行をすべて選択"
                 />
@@ -313,6 +372,8 @@ function WorkHistory() {
               <th>始業</th>
               <th>終業</th>
               <th>休憩</th>
+              <th>外出開始</th>
+              <th>外出終了</th>
               <th>実働(当日)</th>
               <th className="col-numeric">残業</th>
               <th className="col-numeric">深夜</th>
@@ -323,12 +384,12 @@ function WorkHistory() {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 ? (
+            {filteredRows.length === 0 ? (
               <tr>
                 <td colSpan={colCount}>データがありません。</td>
               </tr>
             ) : (
-              rows.map((r, i) => (
+              filteredRows.map((r, i) => (
                 <tr
                   key={r.workId ?? i}
                   style={
@@ -369,6 +430,8 @@ function WorkHistory() {
                   <td>{r.startTime}</td>
                   <td>{r.endTime}</td>
                   <td>{formatMinutesAsHm(r.breakMinutes)}</td>
+                  <td>{r.outingStartTime ? String(r.outingStartTime).slice(0, 5) : "—"}</td>
+                  <td>{r.outingEndTime ? String(r.outingEndTime).slice(0, 5) : "—"}</td>
                   <td>{r.dailyWorkHm ?? formatMinutesAsHm(r.workMinutes)}</td>
                   {(() => {
                     const mx = metricsByWorkId.get(Number(r.workId));
@@ -481,6 +544,24 @@ function WorkHistory() {
                   placeholder="1:00"
                   required
                   style={{ maxWidth: 120 }}
+                />
+              </div>
+              <div className="form-group">
+                <label>外出開始（任意）</label>
+                <input
+                  type="time"
+                  name="outingStartTime"
+                  value={editForm.outingStartTime || ""}
+                  onChange={handleEditChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>外出終了（任意）</label>
+                <input
+                  type="time"
+                  name="outingEndTime"
+                  value={editForm.outingEndTime || ""}
+                  onChange={handleEditChange}
                 />
               </div>
             </div>

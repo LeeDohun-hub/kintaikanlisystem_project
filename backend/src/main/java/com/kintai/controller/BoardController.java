@@ -2,6 +2,7 @@ package com.kintai.controller;
 
 import com.kintai.dto.BoardCommentCreateRequest;
 import com.kintai.dto.BoardPostCreateRequest;
+import com.kintai.dto.BoardPostPinRequest;
 import com.kintai.dto.LoginResponse;
 import com.kintai.service.BoardService;
 import com.kintai.session.LoginSessionSupport;
@@ -19,11 +20,13 @@ public class BoardController {
     private final BoardService boardService;
 
     @GetMapping
-    public ResponseEntity<?> list(HttpSession session) {
+    public ResponseEntity<?> list(
+            @RequestParam(value = "category", required = false) String category,
+            HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         try {
-            return ResponseEntity.ok(boardService.listPosts());
+            return ResponseEntity.ok(boardService.listPosts(category));
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
         }
@@ -40,7 +43,7 @@ public class BoardController {
         }
     }
 
-    @GetMapping("/{postId}")
+    @GetMapping("/posts/{postId}")
     public ResponseEntity<?> get(@PathVariable("postId") Long postId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
@@ -51,7 +54,7 @@ public class BoardController {
         }
     }
 
-    @PutMapping("/{postId}")
+    @PutMapping("/posts/{postId}")
     public ResponseEntity<?> update(
             @PathVariable("postId") Long postId,
             @RequestBody BoardPostCreateRequest req,
@@ -65,7 +68,7 @@ public class BoardController {
         }
     }
 
-    @DeleteMapping("/{postId}")
+    @DeleteMapping("/posts/{postId}")
     public ResponseEntity<?> delete(@PathVariable("postId") Long postId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
@@ -77,7 +80,22 @@ public class BoardController {
         }
     }
 
-    @PostMapping("/{postId}/comments")
+    @PatchMapping("/posts/{postId}/pin")
+    public ResponseEntity<?> setPin(
+            @PathVariable("postId") Long postId,
+            @RequestBody BoardPostPinRequest req,
+            HttpSession session) {
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+        try {
+            boolean pinned = req != null && req.isPinned();
+            return ResponseEntity.ok(boardService.setPinned(user, postId, pinned));
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        }
+    }
+
+    @PostMapping("/posts/{postId}/comments")
     public ResponseEntity<?> createComment(
             @PathVariable("postId") Long postId,
             @RequestBody BoardCommentCreateRequest req,
@@ -91,7 +109,7 @@ public class BoardController {
         }
     }
 
-    @DeleteMapping("/{postId}/comments/{commentId}")
+    @DeleteMapping("/posts/{postId}/comments/{commentId}")
     public ResponseEntity<?> deleteComment(
             @PathVariable("postId") Long postId,
             @PathVariable("commentId") Long commentId,

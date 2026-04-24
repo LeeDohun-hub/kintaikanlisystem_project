@@ -29,13 +29,19 @@ public class LeaveBalanceResponse {
     /** 付与済みか */
     private boolean granted;
 
-    /** 付与数（付与前は 0） */
+    /** 付与数（付与前は 0）: 10 + 付与日からの完了月数 */
     private BigDecimal grantedDays;
+
+    /** 付与日から今日までの完了月数（毎月+1日の算出基準） */
+    private long monthsSinceGrant;
 
     /** 申請/承認済み消化数（FULL=1, HALF=0.5） */
     private BigDecimal usedDays;
 
-    /** 残数（付与前は 0） */
+    /** 残数（付与前は 0）。管理者で無制限のときは null */
     private BigDecimal remainingDays;
+
+    /** true のとき年休残数・付与前制限によらず休暇申請可（管理者本人向け） */
+    private boolean unlimitedAnnualLeave;
 }
 

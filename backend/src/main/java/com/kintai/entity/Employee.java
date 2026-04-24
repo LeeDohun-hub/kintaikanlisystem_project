@@ -53,6 +53,18 @@ public class Employee {
     @Column(name = "photo_filename", length = 255)
     private String photoFilename;
 
+    @Column(name = "address", length = 200)
+    private String address;
+
+    @Column(name = "phone_number", length = 20)
+    private String phoneNumber;
+
+    @Column(name = "birth_date")
+    private LocalDate birthDate;
+
+    @Column(name = "gender", length = 10)
+    private String gender;
+
     @PrePersist
     void prePersist() {
         LocalDateTime now = LocalDateTime.now();

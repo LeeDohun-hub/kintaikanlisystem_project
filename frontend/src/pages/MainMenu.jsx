@@ -20,13 +20,23 @@ export default function MainMenu() {
   const isAdmin = user?.role === "ADMIN";
 
   return (
-    <div className="page-container">
+    <div className="page-container main-menu-page">
+      {isAdmin && (
+        <div className="home-admin-hint" role="status">
+          <span className="home-admin-hint-icon" aria-hidden="true">
+            📣
+          </span>
+          <span>
+            管理者向け：よく使う機能をメニューから開けます。社員マスタ・勤怠取込・休暇承認はこちらからどうぞ。
+          </span>
+        </div>
+      )}
       <h2 className="page-title">メインメニュー</h2>
       <p className="page-subtitle">
         利用する機能を選択してください。
       </p>
 
-      <div className="menu-grid">
+      <div className="menu-grid menu-grid--home">
         {isAdmin ? (
           <>
             <MenuCard
@@ -60,8 +70,13 @@ export default function MainMenu() {
             />
             <MenuCard
               to="/messenger"
-              title="社内メッセージ"
+              title="社内メッセンジャー"
               desc="社員間で1対1のメッセージをやり取りします。"
+            />
+            <MenuCard
+              to="/vacation"
+              title="休暇申請"
+              desc="ご自身の休暇を申請し、承認/却下ステータスを確認します。"
             />
             <MenuCard
               to="/vacation-manage"

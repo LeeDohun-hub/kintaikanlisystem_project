@@ -25,4 +25,9 @@ public class EmployeeUpdateRequest {
     private String password;
     private String confirmPassword;
     private String role;
+
+    private String address;
+    private String phoneNumber;
+    private java.time.LocalDate birthDate;
+    private String gender;
 }

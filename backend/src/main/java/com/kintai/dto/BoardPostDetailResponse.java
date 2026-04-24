@@ -14,6 +14,8 @@ import java.util.List;
 @AllArgsConstructor
 public class BoardPostDetailResponse {
     private Long postId;
+    private String category;
+    private boolean pinned;
     private String title;
     private String content;
     private Long authorId;

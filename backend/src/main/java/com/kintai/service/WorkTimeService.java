@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
@@ -45,7 +46,9 @@ public class WorkTimeService {
         if (!req.getStartTime().isBefore(req.getEndTime())) {
             throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
-        int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
+        validateOutingAgainstWork(req.getStartTime(), req.getEndTime(), req.getOutingStartTime(), req.getOutingEndTime());
+        int workMins = computeWorkMinutes(
+                req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
         if (remarks != null && remarks.isEmpty()) {
             remarks = null;
@@ -56,6 +59,8 @@ public class WorkTimeService {
                 .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
                 .startTime(req.getStartTime())
                 .endTime(req.getEndTime())
+                .outingStartTime(req.getOutingStartTime())
+                .outingEndTime(req.getOutingEndTime())
                 .breakMinutes(breakMins)
                 .workMinutes(workMins)
                 .remarks(remarks)
@@ -118,6 +123,9 @@ public class WorkTimeService {
                     throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
                 }
 
+                validateOutingAgainstWork(
+                        req.getStartTime(), req.getEndTime(), req.getOutingStartTime(), req.getOutingEndTime());
+
                 String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
                 if (remarks != null && remarks.isEmpty()) {
                     remarks = null;
@@ -126,7 +134,8 @@ public class WorkTimeService {
                     throw new IllegalArgumentException("備考は500文字以下です。");
                 }
 
-                int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
+                int workMins = computeWorkMinutes(
+                        req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
 
                 var existing = workTimeRepository.findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(userId, req.getWorkDate());
                 if (existing.isPresent()) {
@@ -137,6 +146,8 @@ public class WorkTimeService {
                     w.setHoliday(Boolean.TRUE.equals(req.getIsHoliday()));
                     w.setStartTime(req.getStartTime());
                     w.setEndTime(req.getEndTime());
+                    w.setOutingStartTime(req.getOutingStartTime());
+                    w.setOutingEndTime(req.getOutingEndTime());
                     w.setBreakMinutes(breakMins);
                     w.setWorkMinutes(workMins);
                     w.setRemarks(remarks);
@@ -148,6 +159,8 @@ public class WorkTimeService {
                             .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
                             .startTime(req.getStartTime())
                             .endTime(req.getEndTime())
+                            .outingStartTime(req.getOutingStartTime())
+                            .outingEndTime(req.getOutingEndTime())
                             .breakMinutes(breakMins)
                             .workMinutes(workMins)
                             .remarks(remarks)
@@ -191,7 +204,9 @@ public class WorkTimeService {
         if (!req.getStartTime().isBefore(req.getEndTime())) {
             throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
-        int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins);
+        validateOutingAgainstWork(req.getStartTime(), req.getEndTime(), req.getOutingStartTime(), req.getOutingEndTime());
+        int workMins = computeWorkMinutes(
+                req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
         if (remarks != null && remarks.isEmpty()) {
             remarks = null;
@@ -200,6 +215,8 @@ public class WorkTimeService {
         w.setHoliday(Boolean.TRUE.equals(req.getIsHoliday()));
         w.setStartTime(req.getStartTime());
         w.setEndTime(req.getEndTime());
+        w.setOutingStartTime(req.getOutingStartTime());
+        w.setOutingEndTime(req.getOutingEndTime());
         w.setBreakMinutes(breakMins);
         w.setWorkMinutes(workMins);
         w.setRemarks(remarks);
@@ -298,9 +315,43 @@ public class WorkTimeService {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
     }
 
-    private static int computeWorkMinutes(LocalTime start, LocalTime end, int breakMinutes) {
-        int startM = start.getHour() * 60 + start.getMinute();
-        int endM = end.getHour() * 60 + end.getMinute();
-        return Math.max(0, endM - startM - breakMinutes);
+    private static int computeWorkMinutes(
+            LocalTime start, LocalTime end, int breakMinutes, LocalTime outingStart, LocalTime outingEnd) {
+        int gross = (int) Duration.between(start, end).toMinutes();
+        int outing = 0;
+        if (outingStart != null && outingEnd != null && outingEnd.isAfter(outingStart)) {
+            outing = (int) Duration.between(outingStart, outingEnd).toMinutes();
+        }
+        return Math.max(0, gross - breakMinutes - outing);
+    }
+
+    /**
+     * 外出は勤務開始・終了の範囲内。2時間超の場合は「退勤扱い」＝勤務終了と外出復帰を同一時刻にすること。
+     */
+    private static void validateOutingAgainstWork(
+            LocalTime workStart, LocalTime workEnd, LocalTime outingStart, LocalTime outingEnd) {
+        if (outingStart == null && outingEnd == null) {
+            return;
+        }
+        if (outingEnd != null && outingStart == null) {
+            throw new IllegalArgumentException("外出開始時刻を入力してください。");
+        }
+        if (outingStart != null && outingEnd == null) {
+            if (outingStart.isBefore(workStart) || !outingStart.isBefore(workEnd)) {
+                throw new IllegalArgumentException("外出開始は勤務開始より後かつ勤務終了より前である必要があります。");
+            }
+            return;
+        }
+        if (!outingStart.isBefore(outingEnd)) {
+            throw new IllegalArgumentException("外出開始は外出終了より前である必要があります。");
+        }
+        if (outingStart.isBefore(workStart) || outingEnd.isAfter(workEnd)) {
+            throw new IllegalArgumentException("外出時間は勤務開始・終了の範囲内で入力してください。");
+        }
+        long outingMins = Duration.between(outingStart, outingEnd).toMinutes();
+        if (outingMins > 120 && !outingEnd.equals(workEnd)) {
+            throw new IllegalArgumentException(
+                    "外出が2時間を超える場合は、勤務終了時刻を外出復帰と同じ時刻に設定してください（退勤扱い）。");
+        }
     }
 }

@@ -3,6 +3,7 @@ package com.kintai.controller;
 import com.kintai.auth.LoginRejectedException;
 import com.kintai.dto.LoginRequest;
 import com.kintai.dto.LoginResponse;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.service.AuthService;
 import com.kintai.service.LoginAttemptService;
 import com.kintai.session.LoginSessionSupport;
@@ -25,6 +26,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final LoginAttemptService loginAttemptService;
+    private final EmployeeAccountRepository employeeAccountRepository;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(
@@ -61,7 +63,20 @@ public class AuthController {
         if (user == null) {
             return ApiResponses.unauthorized();
         }
-        return ResponseEntity.ok(user);
+        // Fetch live status from DB
+        return employeeAccountRepository.findById(user.getId())
+                .map(acc -> {
+                    String status = acc.getCurrentStatus() != null ? acc.getCurrentStatus().name() : "PRESENT";
+                    LoginResponse fresh = LoginResponse.builder()
+                            .id(user.getId())
+                            .employeeCode(user.getEmployeeCode())
+                            .name(user.getName())
+                            .role(user.getRole())
+                            .status(status)
+                            .build();
+                    return ResponseEntity.ok((Object) fresh);
+                })
+                .orElse(ResponseEntity.ok(user));
     }
 
     private static String clientIp(HttpServletRequest req) {

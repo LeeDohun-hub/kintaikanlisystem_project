@@ -33,6 +33,14 @@ public class WorkTimeResponse {
     @JsonFormat(pattern = "HH:mm")
     private LocalTime endTime;
 
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime outingStartTime;
+
+    @JsonInclude(JsonInclude.Include.ALWAYS)
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime outingEndTime;
+
     private Integer breakMinutes;
 
     /** 休日勤務日（管理者用・表示用） */

@@ -1,10 +1,61 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import api from "../../api/api";
 import BackToMenuLink from "../../components/BackToMenuLink";
+import EmployeePhotoThumb from "../../components/EmployeePhotoThumb";
 import { useAuth } from "../../context/AuthContext";
 
 const PASSWORD_MIN = 8;
 const PASSWORD_MAX = 72;
+
+const PREFECTURES = [
+  "北海道",
+  "青森県",
+  "岩手県",
+  "宮城県",
+  "秋田県",
+  "山形県",
+  "福島県",
+  "茨城県",
+  "栃木県",
+  "群馬県",
+  "埼玉県",
+  "千葉県",
+  "東京都",
+  "神奈川県",
+  "新潟県",
+  "富山県",
+  "石川県",
+  "福井県",
+  "山梨県",
+  "長野県",
+  "岐阜県",
+  "静岡県",
+  "愛知県",
+  "三重県",
+  "滋賀県",
+  "京都府",
+  "大阪府",
+  "兵庫県",
+  "奈良県",
+  "和歌山県",
+  "鳥取県",
+  "島根県",
+  "岡山県",
+  "広島県",
+  "山口県",
+  "徳島県",
+  "香川県",
+  "愛媛県",
+  "高知県",
+  "福岡県",
+  "佐賀県",
+  "長崎県",
+  "熊本県",
+  "大分県",
+  "宮崎県",
+  "鹿児島県",
+  "沖縄県",
+];
 
 function isPasswordPolicyOk(p) {
   if (!p || p.length < PASSWORD_MIN || p.length > PASSWORD_MAX) return false;
@@ -12,6 +63,16 @@ function isPasswordPolicyOk(p) {
   if (!/\d/.test(p)) return false;
   if (!/[^A-Za-z0-9\s]/.test(p)) return false;
   return true;
+}
+
+function splitAddress(address) {
+  const raw = String(address ?? "").trim();
+  if (!raw) return { prefecture: "", addressDetail: "" };
+  const hit = PREFECTURES.find((p) => raw.startsWith(p));
+  if (hit) {
+    return { prefecture: hit, addressDetail: raw.slice(hit.length).trim() };
+  }
+  return { prefecture: "", addressDetail: raw };
 }
 
 const EMPTY_FORM = {
@@ -26,43 +87,20 @@ const EMPTY_FORM = {
   confirmPassword: "",
   role: "EMPLOYEE",
   inviteEmail: "",
+  prefecture: "",
+  addressDetail: "",
+  address: "", // backend互換（送信時に prefecture + addressDetail から生成）
+  phoneNumber: "",
+  birthDate: "",
+  gender: "",
 };
 
-function PhotoThumb({ employeeId, photoFilename, size = 32 }) {
-  const [broken, setBroken] = React.useState(false);
-  if (!photoFilename || broken) {
-    return (
-      <span
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          width: size,
-          height: size,
-          borderRadius: "50%",
-          background: "#dde3ec",
-          fontSize: size * 0.45,
-          color: "#7f8c8d",
-          flexShrink: 0,
-        }}
-      >
-        {"\u{1F464}"}
-      </span>
-    );
-  }
+function Field({ label, children }) {
   return (
-    <img
-      src={`/api/employees/${employeeId}/photo`}
-      alt=""
-      onError={() => setBroken(true)}
-      style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        objectFit: "cover",
-        flexShrink: 0,
-      }}
-    />
+    <div className="em-field">
+      <label className="em-label">{label}</label>
+      {children}
+    </div>
   );
 }
 
@@ -154,6 +192,7 @@ function EmployeeMaster() {
       setForm({ ...EMPTY_FORM });
       return;
     }
+    const { prefecture, addressDetail } = splitAddress(row.address);
     setForm({
       employeeCode: row.employeeCode ?? "",
       employeeName: row.employeeName ?? "",
@@ -169,6 +208,12 @@ function EmployeeMaster() {
       confirmPassword: "",
       role: row.role === "ADMIN" ? "ADMIN" : "EMPLOYEE",
       inviteEmail: row.inviteEmail ?? "",
+      prefecture,
+      addressDetail,
+      address: row.address ?? "",
+      phoneNumber: row.phoneNumber ?? "",
+      birthDate: row.birthDate ?? "",
+      gender: row.gender ?? "",
     });
   }, [selectedKey, rows]);
 
@@ -266,6 +311,7 @@ function EmployeeMaster() {
     }
 
     let createdId = null;
+    const combinedAddress = `${String(form.prefecture ?? "").trim()}${String(form.addressDetail ?? "").trim()}`.trim();
     try {
       const res = await api.post("/employees", {
         employeeCode: form.employeeCode,
@@ -279,6 +325,10 @@ function EmployeeMaster() {
         confirmPassword: form.confirmPassword,
         role: form.role,
         inviteEmail: form.inviteEmail.trim() || undefined,
+        address: combinedAddress || undefined,
+        phoneNumber: form.phoneNumber.trim() || undefined,
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
       });
       createdId = res.data?.employeeId;
     } catch (err) {
@@ -353,6 +403,7 @@ function EmployeeMaster() {
 
     setUpdateBusy(true);
     const id = selectedSingleRow.employeeId;
+    const combinedAddress = `${String(form.prefecture ?? "").trim()}${String(form.addressDetail ?? "").trim()}`.trim();
     try {
       await api.put(`/employees/${id}`, {
         employeeCode: form.employeeCode,
@@ -366,6 +417,10 @@ function EmployeeMaster() {
         confirmPassword: pwTouched ? cpw : undefined,
         role: hasLoginAccount ? form.role : undefined,
         inviteEmail: form.inviteEmail.trim() || undefined,
+        address: combinedAddress || undefined,
+        phoneNumber: form.phoneNumber.trim() || undefined,
+        birthDate: form.birthDate || undefined,
+        gender: form.gender || undefined,
       });
     } catch (err) {
       const msg = err.response?.data?.error || "更新に失敗しました。";
@@ -450,13 +505,9 @@ function EmployeeMaster() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container employee-master">
       <h2 className="page-title">社員マスター入力</h2>
-      <p className="page-subtitle">
-        
-        
-        
-      </p>
+
       {error && <div className="error-msg">{error}</div>}
       {successMsg && (
         <div
@@ -471,203 +522,286 @@ function EmployeeMaster() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: 16 }}>
-        <h3 style={{ marginTop: 0 }}></h3>
+      <div className="card employee-master-form-card">
+        <div className="employee-master-form-header">
+          <h3 className="employee-master-form-title">
+            {isEditMode ? "社員情報を編集" : "新規社員登録"}
+          </h3>
+          <div className="employee-master-form-sub">
+            一覧で<strong>1名だけ</strong>チェックするとフォームへ自動反映されます（パスワードは空のまま）。編集後は<strong>修正を保存</strong>、新規は一覧の選択を外して<strong>登録</strong>してください。
+          </div>
+        </div>
         <form onSubmit={onSubmit}>
-          <div className="form-row">
-          <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
-              社員コード
-            </label>
-            <input
-              name="employeeCode"
-              value={form.employeeCode}
-              onChange={onChange}
-              placeholder="社員コード（8文字・英数字）"
-              required
-              maxLength={8}
-              pattern="[A-Za-z0-9]{8}"
-              title="8文字の英数字"
-              style={{ minWidth: 210 }}
-            />
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
-              社員名
-            </label>
-            <input
-              name="employeeName"
-              value={form.employeeName}
-              onChange={onChange}
-              placeholder="氏名"
-              required
-              maxLength={50}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
-            <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
-              入社日
-            </label>
-            <input
-              name="hireDate"
-              type="date"
-              value={form.hireDate}
-              onChange={onChange}
-              required
-              aria-label="入社日"
-              style={{ width: 128 }}
-            />
-          </div>
-          <p>
-            パスワードは8文字以上で英字・数字・記号をそれぞれ含めてください。
-          </p>
-          <div className="form-row">
-            <input
-              name="inviteEmail"
-              type="email"
-              value={form.inviteEmail}
-              onChange={onChange}
-              placeholder="招待メール送付先（入力すると登録後に自動送信）"
-              maxLength={254}
-              autoComplete="off"
-              style={{ flex: "1 1 25%", minWidth: 260, maxWidth: 420 }}
-            />
-          </div>
-          <p>
-            メールアドレスを入力すると登録と同時に招待メールが自動送信されます。
-          </p>
-          <div className="form-row">
-            <input
-              name="loginId"
-              value={form.loginId}
-              onChange={onChange}
-              placeholder="ログインID（例: admin02, user001）"
-              required={!isEditMode || hasLoginAccount}
-              maxLength={50}
-              autoComplete="off"
-            />
-            <select
-              name="role"
-              value={form.role}
-              onChange={onChange}
-            >
-              <option value="EMPLOYEE">一般スタッフ</option>
-              <option value="ADMIN">管理者</option>
-            </select>
-          </div>
-          <div className="form-row" style={{ marginTop: 10 }}>
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={onChange}
-              placeholder={
-                isEditMode
-                  ? "変更する場合のみ入力（英字・数字・記号を含む8文字以上）"
-                  : "英字・数字・記号を含む8文字以上"
-              }
-              required={!isEditMode}
-              minLength={isEditMode ? undefined : PASSWORD_MIN}
-              maxLength={PASSWORD_MAX}
-              title="8文字以上72文字以下、英字・数字・記号をそれぞれ1文字以上"
-              autoComplete="new-password"
-              
-            />
-            <input
-              name="confirmPassword"
-              type="password"
-              value={form.confirmPassword}
-              onChange={onChange}
-              placeholder={isEditMode ? "パスワード（確認・変更時のみ）" : "パスワード（確認）"}
-              required={!isEditMode}
-              minLength={isEditMode ? undefined : PASSWORD_MIN}
-              maxLength={PASSWORD_MAX}
-              autoComplete="new-password"
-            />
-          </div>
-          <div className="form-row" style={{ marginTop: 10 }}>
-            <input
-              name="department"
-              value={form.department}
-              onChange={onChange}
-              placeholder="所属（任意）"
-              maxLength={50}
-            />
-            
-            <input
-              name="hourlyCost"
-              type="number"
-              step="0.01"
-              min="0"
-              value={form.hourlyCost}
-              onChange={onChange}
-              placeholder="時給原価（任意、未入力は0）"
-            />
-            <select
-              name="activeFlag"
-              value={form.activeFlag}
-              onChange={onChange}
-            >
-              <option value={1}>有効(1)</option>
-              <option value={0}>無効(0)</option>
-            </select>
+
+          {/* ── 基本情報 ── */}
+          <section className="employee-master-section">
+            <div className="employee-master-section-title">
+              <span className="employee-master-section-dot" aria-hidden="true" />
+              基本情報
+            </div>
+            <div className="employee-master-grid">
+              <Field label="社員コード *">
+                <input
+                  name="employeeCode"
+                  value={form.employeeCode}
+                  onChange={onChange}
+                  placeholder="8文字・英数字"
+                  required
+                  maxLength={8}
+                  pattern="[A-Za-z0-9]{8}"
+                  title="8文字の英数字"
+                />
+              </Field>
+              <Field label="氏名 *">
+                <input
+                  name="employeeName"
+                  value={form.employeeName}
+                  onChange={onChange}
+                  placeholder="氏名"
+                  required
+                  maxLength={50}
+                />
+              </Field>
+              <Field label="所属">
+                <input
+                  name="department"
+                  value={form.department}
+                  onChange={onChange}
+                  placeholder="部署・チーム名"
+                  maxLength={50}
+                />
+              </Field>
+              <Field label="入社日 *">
+                <input
+                  name="hireDate"
+                  type="date"
+                  value={form.hireDate}
+                  onChange={onChange}
+                  required
+                />
+              </Field>
+              <Field label="生年月日">
+                <input
+                  name="birthDate"
+                  type="date"
+                  value={form.birthDate}
+                  onChange={onChange}
+                />
+              </Field>
+              <Field label="性別">
+                <select name="gender" value={form.gender} onChange={onChange}>
+                  <option value="">未選択</option>
+                  <option value="男性">男性</option>
+                  <option value="女性">女性</option>
+                  <option value="その他">その他</option>
+                </select>
+              </Field>
+            </div>
+            <div className="employee-master-grid employee-master-grid--spaced employee-master-grid--address">
+              <Field label="住所（都道府県）">
+                <select
+                  name="prefecture"
+                  value={form.prefecture}
+                  onChange={onChange}
+                  aria-label="住所（都道府県）"
+                >
+                  <option value="">選択してください</option>
+                  {PREFECTURES.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="住所（市区町村・番地・建物名など）">
+                <input
+                  name="addressDetail"
+                  value={form.addressDetail}
+                  onChange={onChange}
+                  placeholder="例: 千代田区1-1-1 ○○ビル 10F"
+                  maxLength={200}
+                  className="em-input-full"
+                  autoComplete="street-address"
+                />
+              </Field>
+            </div>
+          </section>
+
+          {/* ── 連絡先・給与 ── */}
+          <section className="employee-master-section">
+            <div className="employee-master-section-title">
+              <span className="employee-master-section-dot" aria-hidden="true" />
+              連絡先・給与
+            </div>
+            <div className="employee-master-grid">
+              <Field label="電話番号">
+                <input
+                  name="phoneNumber"
+                  type="tel"
+                  value={form.phoneNumber}
+                  onChange={onChange}
+                  placeholder="090-0000-0000"
+                  maxLength={20}
+                />
+              </Field>
+              <Field label="時給原価">
+                <input
+                  name="hourlyCost"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.hourlyCost}
+                  onChange={onChange}
+                  placeholder="0"
+                />
+              </Field>
+              <Field label="有効フラグ">
+                <select name="activeFlag" value={form.activeFlag} onChange={onChange}>
+                  <option value={1}>有効</option>
+                  <option value={0}>無効</option>
+                </select>
+              </Field>
+            </div>
+          </section>
+
+          {/* ── アカウント ── */}
+          <section className="employee-master-section">
+            <div className="employee-master-section-title">
+              <span className="employee-master-section-dot" aria-hidden="true" />
+              アカウント
+            </div>
+            <div className="employee-master-grid">
+              <Field label="ログインID *">
+                <input
+                  name="loginId"
+                  value={form.loginId}
+                  onChange={onChange}
+                  placeholder="例: user001"
+                  required={!isEditMode || hasLoginAccount}
+                  maxLength={50}
+                  autoComplete="off"
+                />
+              </Field>
+              <Field label="役割">
+                <select name="role" value={form.role} onChange={onChange}>
+                  <option value="EMPLOYEE">一般スタッフ</option>
+                  <option value="ADMIN">管理者</option>
+                </select>
+              </Field>
+              <Field label="招待メール">
+                <input
+                  name="inviteEmail"
+                  type="email"
+                  value={form.inviteEmail}
+                  onChange={onChange}
+                  placeholder="登録後に自動送信"
+                  maxLength={254}
+                  autoComplete="off"
+                />
+              </Field>
+            </div>
+            <div className="employee-master-grid employee-master-grid--spaced">
+              <Field label={isEditMode ? "パスワード（変更時のみ）" : "パスワード *"}>
+                <input
+                  name="password"
+                  type="password"
+                  value={form.password}
+                  onChange={onChange}
+                  placeholder="英字・数字・記号を含む8文字以上"
+                  required={!isEditMode}
+                  minLength={isEditMode ? undefined : PASSWORD_MIN}
+                  maxLength={PASSWORD_MAX}
+                  autoComplete="new-password"
+                />
+              </Field>
+              <Field label={isEditMode ? "パスワード確認（変更時のみ）" : "パスワード確認 *"}>
+                <input
+                  name="confirmPassword"
+                  type="password"
+                  value={form.confirmPassword}
+                  onChange={onChange}
+                  placeholder="パスワードを再入力"
+                  required={!isEditMode}
+                  minLength={isEditMode ? undefined : PASSWORD_MIN}
+                  maxLength={PASSWORD_MAX}
+                  autoComplete="new-password"
+                />
+              </Field>
+            </div>
+            <p className="employee-master-hint">
+              パスワードは8文字以上、英字・数字・記号をそれぞれ1文字以上含めてください。
+            </p>
+          </section>
+
+          {/* ── プロフィール写真 ── */}
+          <section className="employee-master-section">
+            <div className="employee-master-section-title">
+              <span className="employee-master-section-dot" aria-hidden="true" />
+              プロフィール写真
+            </div>
+            <div className="employee-master-photo-row">
+              {photoPreview ? (
+                <img
+                  src={photoPreview}
+                  alt="プレビュー"
+                  className="employee-master-photo-preview"
+                />
+              ) : (
+                <span className="employee-master-photo-fallback">
+                  {"\u{1F464}"}
+                </span>
+              )}
+              <div className="employee-master-photo-controls">
+                <div className="employee-master-photo-hint">JPEG / PNG / GIF / WebP・5MB 以下</div>
+                <div className="employee-master-photo-actions">
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={onPhotoChange}
+                    className="employee-master-photo-input"
+                  />
+                  {photoFile && (
+                    <button type="button" className="secondary employee-master-photo-clear" onClick={clearPhoto}>
+                      クリア
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* ── アクション ── */}
+          <div className="employee-master-actionbar">
             {isEditMode ? (
               <button
                 type="button"
-                className="primary"
+                className="primary employee-master-actionbar-main"
                 disabled={updateBusy}
                 onClick={handleUpdate}
               >
-                {updateBusy ? "更新中…" : "修正"}
+                {updateBusy ? "更新中…" : "修正を保存"}
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="primary employee-master-actionbar-main"
+                disabled={isEditMode}
+                title={isEditMode ? "新規登録するには一覧のチェックを外してください" : undefined}
+              >
+                登録
+              </button>
+            )}
+            {isEditMode ? (
+              <button
+                type="button"
+                className="secondary employee-master-actionbar-sub"
+                onClick={() => setSelectedIds(new Set())}
+                disabled={updateBusy}
+              >
+                キャンセル
               </button>
             ) : null}
-            <button
-              type="submit"
-              className="primary"
-              disabled={isEditMode}
-              title={
-                isEditMode
-                  ? "新規登録するには一覧のチェックを外してください"
-                  : undefined
-              }
-            >
-              登録
-            </button>
-          </div>
-          <div className="form-row" style={{ marginTop: 10, alignItems: "center", gap: 12 }}>
-            {photoPreview ? (
-              <img
-                src={photoPreview}
-                alt="プレビュー"
-                style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: "2px solid #ddd", flexShrink: 0 }}
-              />
-            ) : (
-              <span
-                style={{
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  width: 64, height: 64, borderRadius: "50%", background: "#dde3ec",
-                  fontSize: 28, color: "#7f8c8d", flexShrink: 0,
-                }}
-              >
-                {"\u{1F464}"}
-              </span>
-            )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: "#555" }}>
-                プロフィール写真（任意・JPEG/PNG/GIF/WebP・5MB以下）
-              </label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  ref={photoInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/gif,image/webp"
-                  onChange={onPhotoChange}
-                  style={{ fontSize: 13 }}
-                />
-                {photoFile && (
-                  <button type="button" className="secondary" style={{ padding: "4px 10px", fontSize: 12 }} onClick={clearPhoto}>
-                    クリア
-                  </button>
-                )}
-              </div>
-            </div>
           </div>
         </form>
       </div>
@@ -734,7 +868,11 @@ function EmployeeMaster() {
                 <th>e-mail</th>
                 <th>氏名</th>
                 <th>入社日</th>
+                <th>生年月日</th>
+                <th>性別</th>
                 <th>所属</th>
+                <th>電話番号</th>
+                <th>住所</th>
                 <th>時給原価</th>
                 <th>有効</th>
               </tr>
@@ -742,7 +880,7 @@ function EmployeeMaster() {
             <tbody>
               {rows.length === 0 ? (
                 <tr>
-                  <td colSpan={11}>データがありません。</td>
+                  <td colSpan={15}>データがありません。</td>
                 </tr>
               ) : (
                 rows.map((r) => {
@@ -764,7 +902,7 @@ function EmployeeMaster() {
                         />
                       </td>
                       <td style={{ textAlign: "center" }}>
-                        <PhotoThumb employeeId={r.employeeId} photoFilename={r.photoFilename} size={32} />
+                        <EmployeePhotoThumb employeeId={r.employeeId} photoFilename={r.photoFilename} size={32} />
                       </td>
                       <td>{r.employeeId}</td>
                       <td>{r.employeeCode}</td>
@@ -774,7 +912,11 @@ function EmployeeMaster() {
                       </td>
                       <td>{r.employeeName}</td>
                       <td style={{ whiteSpace: "nowrap" }}>{r.hireDate ?? "—"}</td>
-                      <td>{r.department ?? ""}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.birthDate ?? "—"}</td>
+                      <td>{r.gender ?? "—"}</td>
+                      <td>{r.department ?? "—"}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{r.phoneNumber ?? "—"}</td>
+                      <td style={{ maxWidth: 180, wordBreak: "break-all" }}>{r.address ?? "—"}</td>
                       <td>{r.hourlyCost ?? ""}</td>
                       <td>{r.activeFlag}</td>
                     </tr>

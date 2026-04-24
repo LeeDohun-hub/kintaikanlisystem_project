@@ -1,103 +1,244 @@
-import React, { useState } from "react";
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Outlet, NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { BOARD_FAVORITE_BOARDS, DEFAULT_BOARD_CATEGORY } from "../constants/boardCategories";
 import { useAuth } from "../context/AuthContext";
+import StatusBadge from "./StatusBadge";
+import ProfileEditModal from "./ProfileEditModal";
 import "./Layout.css";
 
-function SidebarPhoto({ employeeId }) {
+function TopBarPhoto({ employeeId, photoVersion, onEditClick, size = 40 }) {
   const [broken, setBroken] = useState(false);
-  const size = 72;
-  const style = {
-    width: size, height: size, borderRadius: "50%",
-    border: "2px solid rgba(255,255,255,0.15)",
-    display: "block", margin: "12px auto 0",
+  useEffect(() => {
+    setBroken(false);
+  }, [employeeId, photoVersion]);
+  const circlStyle = {
+    width: size,
+    height: size,
+    borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,0.35)",
+    display: "block",
     flexShrink: 0,
   };
 
-  if (!employeeId || broken) {
-    return (
-      <div
-        style={{
-          ...style,
-          background: "rgba(255,255,255,0.08)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: 32, color: "rgba(255,255,255,0.3)",
-        }}
-      >
-        {"\u{1F464}"}
-      </div>
-    );
-  }
-  return (
+  const img = (!employeeId || broken) ? (
+    <div
+      style={{
+        ...circlStyle,
+        background: "rgba(255,255,255,0.12)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: Math.round(size * 0.4),
+        color: "rgba(255,255,255,0.45)",
+      }}
+    >
+      {"\u{1F464}"}
+    </div>
+  ) : (
     <img
-      src={`/api/employees/${employeeId}/photo`}
+      src={`/api/employees/${employeeId}/photo?v=${photoVersion}`}
       alt=""
       onError={() => setBroken(true)}
-      style={{ ...style, objectFit: "cover" }}
+      style={{ ...circlStyle, objectFit: "cover" }}
     />
+  );
+
+  return (
+    <div className="top-bar-photo-wrap">
+      {img}
+      <button
+        type="button"
+        className="top-bar-photo-edit-btn"
+        onClick={onEditClick}
+        title="プロフィールを編集"
+      >
+        ✏️
+      </button>
+    </div>
   );
 }
 
 const EMPLOYEE_NAV = [
-  { to: "/work-input",   label: "勤怠入力" },
-  { to: "/work-history", label: "勤務履歴" },
-  { to: "/board",        label: "掲示板" },
-  { to: "/messenger",    label: "社内メッセージ" },
-  { to: "/vacation",     label: "休暇申請" },
+  { to: "/work-input", label: "勤怠入力", icon: "📝" },
+  { to: "/work-history", label: "勤務履歴", icon: "📅" },
+  { to: "/board", label: "掲示板", icon: "📌" },
+  { to: "/messenger", label: "社内メッセンジャー", icon: "💬" },
+  { to: "/vacation", label: "休暇申請", icon: "🏖" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/menu",            label: "メニュー" },
-  { to: "/employees",       label: "社員マスタ入力" },
-  { to: "/login-check",     label: "ログイン確認" },
-  { to: "/upload",          label: "EXCELアップロード" },
-  { to: "/report",          label: "勤怠履歴" },
-  { to: "/board",           label: "掲示板" },
-  { to: "/messenger",       label: "社内メッセージ" },
-  { to: "/vacation-manage", label: "休暇申請管理" },
+  { to: "/menu", label: "メニュー", icon: "🏠" },
+  { to: "/employees", label: "社員マスタ入力", icon: "👥" },
+  { to: "/login-check", label: "ログイン確認", icon: "🔐" },
+  { to: "/upload", label: "EXCELアップロード", icon: "📤" },
+  { to: "/report", label: "勤怠履歴", icon: "📊" },
+  { to: "/board", label: "掲示板", icon: "📌" },
+  { to: "/messenger", label: "社内メッセンジャー", icon: "💬" },
+  { to: "/vacation", label: "休暇申請", icon: "🏖" },
+  { to: "/vacation-manage", label: "休暇申請管理", icon: "✅" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "PRESENT", label: "在席" },
+  { value: "ABSENT", label: "退勤" },
+  { value: "VACATION", label: "休暇" },
+  { value: "OUTING", label: "外出" },
+];
+
+function NavBoardDropdown({ panelClass, icon, label }) {
+  const [searchParams] = useSearchParams();
+  const currentCat = searchParams.get("category") || DEFAULT_BOARD_CATEGORY;
+
+  return (
+    <div className="nav-board-dropdown-wrap" tabIndex={0}>
+      <NavLink to="/board" className={panelClass} end={false}>
+        <span className="panel-nav-icon" aria-hidden="true">
+          {icon}
+        </span>
+        <span className="panel-nav-label">{label}</span>
+      </NavLink>
+      <aside className="nav-board-flyout" aria-label="お気に入りの掲示板">
+        <div className="nav-board-flyout-inner">
+          <p className="nav-board-flyout-heading">お気に入りの掲示板</p>
+          <ul className="nav-board-flyout-list">
+            {BOARD_FAVORITE_BOARDS.map((b) => (
+              <li key={b.id}>
+                <NavLink
+                  to={`/board?category=${encodeURIComponent(b.id)}`}
+                  className={() =>
+                    "nav-board-flyout-link" + (currentCat === b.id ? " is-active" : "")
+                  }
+                >
+                  {b.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+function StatusSelector({ status, onChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="status-selector-wrap status-selector-wrap--topbar">
+      <button
+        type="button"
+        className="status-selector-btn status-selector-btn--topbar"
+        onClick={() => setOpen((v) => !v)}
+        title="ステータスを変更"
+      >
+        <StatusBadge status={status} size="sm" />
+        <span className="status-selector-caret status-selector-caret--topbar">▾</span>
+      </button>
+      {open && (
+        <div className="status-selector-dropdown status-selector-dropdown--topbar">
+          {STATUS_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              className={"status-selector-item" + (status === opt.value ? " is-active" : "")}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+            >
+              <StatusBadge status={opt.value} size="sm" />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Layout() {
-  const { user, logout } = useAuth();
+  const { user, logout, changeStatus } = useAuth();
   const navigate = useNavigate();
+  const [photoVersion, setPhotoVersion] = useState(() => Date.now());
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate("/login");
   };
 
-  const navClass = ({ isActive }) => "nav-link" + (isActive ? " active" : "");
+  const openProfileModal = () => setProfileModalOpen(true);
+  const closeProfileModal = () => setProfileModalOpen(false);
+
+  const panelClass = ({ isActive }) => "panel-nav-link" + (isActive ? " active" : "");
   const links = user?.role === "ADMIN" ? ADMIN_NAV : EMPLOYEE_NAV;
 
   return (
-    <div className="layout">
-      <aside className="sidebar">
-        <div className="sidebar-header">
-          <div className="sidebar-logo">勤怠管理システム</div>
-          <div className="sidebar-user">{user?.name}</div>
-          <span
-            className={`role-badge ${user?.role === "ADMIN" ? "admin" : "employee"}`}
+    <div className="app-shell">
+      <header className="top-bar">
+        <div className="top-bar-brand">
+          <NavLink
+            to={user?.role === "ADMIN" ? "/menu" : "/work-input"}
+            className="top-bar-brand-link"
+            title="ホームへ"
           >
+            <img src="/smtlogo.png" alt="smartee Japan" className="top-bar-brand-logo" width="168" height="32" />
+          </NavLink>
+        </div>
+        <div className="top-bar-search-wrap">
+          <input
+            type="search"
+            className="top-bar-search"
+            placeholder="機能名で絞り込み（準備中）"
+            aria-label="検索"
+            readOnly
+          />
+        </div>
+        <div className="top-bar-actions">
+          <TopBarPhoto
+            employeeId={user?.id}
+            photoVersion={photoVersion}
+            onEditClick={openProfileModal}
+            size={40}
+          />
+          <span className="top-bar-user-name">{user?.name}</span>
+          <span className={`top-bar-role-badge ${user?.role === "ADMIN" ? "is-admin" : ""}`}>
             {user?.role === "ADMIN" ? "管理者" : "スタッフ"}
           </span>
-          <SidebarPhoto employeeId={user?.id} />
+          <StatusSelector status={user?.status ?? "PRESENT"} onChange={changeStatus} />
+          <button type="button" className="top-bar-logout" onClick={handleLogout}>
+            ログアウト
+          </button>
         </div>
+      </header>
 
-        <nav className="sidebar-nav">
-          {links.map(({ to, label }) => (
-            <NavLink key={to} to={to} className={navClass}>
-              {label}
-            </NavLink>
-          ))}
-        </nav>
+      <div className="app-body">
+        <aside className="nav-panel" aria-label="メニュー">
+          <nav className="nav-panel-links">
+            {links.map(({ to, label, icon }) =>
+              to === "/board" ? (
+                <NavBoardDropdown key={to} panelClass={panelClass} icon={icon} label={label} />
+              ) : (
+                <NavLink key={to} to={to} className={panelClass} end={to === "/menu"}>
+                  <span className="panel-nav-icon" aria-hidden="true">
+                    {icon}
+                  </span>
+                  <span className="panel-nav-label">{label}</span>
+                </NavLink>
+              ),
+            )}
+          </nav>
+        </aside>
 
-        <button type="button" onClick={handleLogout} className="logout-btn">
-          ログアウト
-        </button>
-      </aside>
+        <main className="main-content">
+          <Outlet />
+        </main>
+      </div>
 
-      <main className="main-content">
-        <Outlet />
-      </main>
+      <ProfileEditModal
+        open={profileModalOpen}
+        onClose={closeProfileModal}
+        employeeId={user?.id}
+        onPhotoUpdated={() => setPhotoVersion(Date.now())}
+      />
     </div>
   );
 }

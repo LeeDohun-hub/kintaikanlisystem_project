@@ -8,12 +8,16 @@ body {
     system-ui,
     -apple-system,
     "Segoe UI",
+    "Hiragino Sans",
+    "Yu Gothic UI",
     sans-serif;
-  background: #f5f6fa;
+  background: #e8ecf1;
 }
 
 .page-container {
-  padding: 24px;
+  padding: 24px 28px 32px;
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
 .page-title {
@@ -100,6 +104,213 @@ button.secondary:hover {
   background: #dfe6e9;
 }
 
+/* 社員マスター入力（スクリーンショット風の1カラムフォーム） */
+.employee-master .employee-master-form-card {
+  max-width: 980px;
+  margin: 0 auto 16px;
+  padding: 18px 18px 16px;
+}
+
+.employee-master-form-header {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eef0f3;
+}
+
+.employee-master-form-title {
+  margin: 0;
+  font-size: 16px;
+  color: #2c3e50;
+}
+
+.employee-master-form-sub {
+  margin-top: 6px;
+  font-size: 12px;
+  color: #7f8c8d;
+  line-height: 1.55;
+}
+
+.employee-master-section {
+  margin-top: 14px;
+  padding: 14px 14px 12px;
+  background: #f8f9fb;
+  border: 1px solid #e8eaef;
+  border-radius: 10px;
+}
+
+.employee-master-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #2c3e50;
+  margin-bottom: 12px;
+}
+
+.employee-master-section-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #e11d48;
+  box-shadow: 0 0 0 4px rgba(225, 29, 72, 0.12);
+  flex: 0 0 auto;
+}
+
+.employee-master-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 14px;
+}
+
+.employee-master-grid--spaced {
+  margin-top: 12px;
+}
+
+.employee-master-grid--full {
+  margin-top: 12px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.employee-master-grid--address {
+  grid-template-columns: 220px minmax(0, 1fr);
+}
+
+@media (max-width: 920px) {
+  .employee-master-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .employee-master-grid--address {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .employee-master .employee-master-form-card {
+    padding: 16px;
+  }
+  .employee-master-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.em-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.em-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4b5563;
+}
+
+.employee-master input,
+.employee-master select {
+  padding: 10px 12px;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+  outline: none;
+}
+
+.employee-master input:focus,
+.employee-master select:focus {
+  border-color: rgba(52, 152, 219, 0.75);
+  box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.18);
+}
+
+.em-input-full {
+  width: 100%;
+}
+
+.employee-master-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.employee-master-photo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.employee-master-photo-preview {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #dde3ec;
+  flex: 0 0 auto;
+}
+
+.employee-master-photo-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: #dde3ec;
+  font-size: 30px;
+  color: #7f8c8d;
+  flex: 0 0 auto;
+}
+
+.employee-master-photo-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 240px;
+}
+
+.employee-master-photo-hint {
+  font-size: 12px;
+  color: #7f8c8d;
+}
+
+.employee-master-photo-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.employee-master-photo-input {
+  font-size: 13px;
+}
+
+.employee-master-photo-clear {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+.employee-master-actionbar {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px dashed #e5e7eb;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.employee-master-actionbar-main {
+  flex: 1 1 260px;
+  min-height: 44px;
+}
+
+.employee-master-actionbar-sub {
+  flex: 0 0 auto;
+  min-height: 44px;
+}
+
 table.data-table {
   width: 100%;
   border-collapse: collapse;
@@ -142,6 +353,14 @@ table.data-table th.col-numeric {
   gap: 16px;
 }
 
+.month-picker-header-end {
+  margin-left: auto;
+  text-align: right;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .month-picker-field {
   display: flex;
   flex-direction: column;
@@ -173,6 +392,44 @@ table.data-table th.col-numeric {
   align-items: flex-start;
   justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+/* 勤務履歴: 年休情報をカレンダー上に積み、横並びの空きを解消 */
+.work-history-month-below {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.work-history-leave-panel {
+  padding: 10px 14px;
+  background: #f4f7fb;
+  border: 1px solid #e8edf4;
+  border-radius: 8px;
+}
+
+.work-history-leave-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #2c3e50;
+  line-height: 1.35;
+}
+
+.work-history-leave-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.work-history-leave-error {
+  margin-top: 4px;
+  font-size: 12px;
+  color: #b91c1c;
+  line-height: 1.4;
 }
 
 /* 対象月のカレンダー（勤務履歴フィルタ） */
@@ -555,22 +812,53 @@ table.data-table th.col-numeric {
   text-decoration: underline;
 }
 
+.home-admin-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  border: 1px solid #bae6fd;
+  background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+  color: #0c4a6e;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.home-admin-hint-icon {
+  flex-shrink: 0;
+  font-size: 18px;
+  line-height: 1.2;
+}
+
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 16px;
 }
 
+.menu-grid--home {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+
+@media (min-width: 1100px) {
+  .menu-grid--home {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .menu-card {
   display: block;
   background: #fff;
-  border-radius: 10px;
-  padding: 18px 18px 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  border: 1px solid #eef1f4;
+  border-radius: 12px;
+  padding: 20px 20px 18px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  border: 1px solid #e2e8f0;
   text-decoration: none;
   color: inherit;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
 }
 
 .menu-card:hover {

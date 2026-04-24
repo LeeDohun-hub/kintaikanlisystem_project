@@ -6,9 +6,11 @@ import com.kintai.dto.VacationRequestResponse;
 import com.kintai.dto.VacationSubmitRequest;
 import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.entity.Employee;
+import com.kintai.entity.Role;
 import com.kintai.entity.VacationRequest;
 import com.kintai.entity.VacationStatus;
 import com.kintai.entity.VacationType;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.VacationRequestRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,7 @@ public class VacationService {
 
     private final VacationRequestRepository vacationRequestRepository;
     private final EmployeeRepository employeeRepository;
+    private final EmployeeAccountRepository employeeAccountRepository;
     private final LeaveBalanceService leaveBalanceService;
 
     // ── 社員向け ────────────────────────────────────────────────
@@ -211,6 +214,12 @@ public class VacationService {
     }
 
     private void ensureEnoughLeave(Long employeeId, VacationType type) {
+        boolean adminAccount = employeeAccountRepository.findById(employeeId)
+                .map(acc -> acc.getRole() == Role.ADMIN)
+                .orElse(false);
+        if (adminAccount) {
+            return;
+        }
         BigDecimal need = switch (type) {
             case FULL -> new BigDecimal("1.0");
             case HALF_AM, HALF_PM -> new BigDecimal("0.5");

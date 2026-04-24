@@ -8,11 +8,11 @@ import com.kintai.entity.WorkTime;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.WorkTimeRepository;
 import com.kintai.util.AttendanceMetricsCalculator;
+import com.kintai.util.JapaneseHolidayUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
@@ -55,7 +55,7 @@ public class AdminAttendanceMetricsService {
             LocalDateTime clockOut = AttendanceMetricsCalculator.clockOut(
                     w.getWorkDate(), w.getStartTime(), w.getEndTime());
             int br = w.getBreakMinutes() != null ? w.getBreakMinutes() : 0;
-            boolean isHol = w.isHoliday() || isWeekend(w.getWorkDate());
+            boolean isHol = w.isHoliday() || JapaneseHolidayUtil.isHolidayOrWeekend(w.getWorkDate());
             int workM = AttendanceMetricsCalculator.workMinutes(clockIn, clockOut, br);
             int ot = AttendanceMetricsCalculator.overtimeMinutes(workM);
             int hw = AttendanceMetricsCalculator.holidayWorkMinutes(isHol, workM);
@@ -114,11 +114,5 @@ public class AdminAttendanceMetricsService {
 
     private static double round4(double v) {
         return Math.round(v * 10000.0) / 10000.0;
-    }
-
-    private static boolean isWeekend(java.time.LocalDate d) {
-        if (d == null) return false;
-        DayOfWeek w = d.getDayOfWeek();
-        return w == DayOfWeek.SATURDAY || w == DayOfWeek.SUNDAY;
     }
 }

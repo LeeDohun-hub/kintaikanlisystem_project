@@ -101,6 +101,10 @@ public class EmployeeMasterService {
                 .hourlyCost(hourly)
                 .activeFlag(active)
                 .hireDate(hireDate)
+                .address(nullIfBlank(req.getAddress()))
+                .phoneNumber(nullIfBlank(req.getPhoneNumber()))
+                .birthDate(req.getBirthDate())
+                .gender(nullIfBlank(req.getGender()))
                 .build();
         employeeRepository.save(e);
 
@@ -159,6 +163,10 @@ public class EmployeeMasterService {
         e.setHourlyCost(hourly);
         e.setActiveFlag(active);
         e.setHireDate(hireDate);
+        e.setAddress(nullIfBlank(req.getAddress()));
+        e.setPhoneNumber(nullIfBlank(req.getPhoneNumber()));
+        e.setBirthDate(req.getBirthDate());
+        e.setGender(nullIfBlank(req.getGender()));
         employeeRepository.save(e);
 
         Optional<EmployeeAccount> accOpt = employeeAccountRepository.findById(employeeId);
@@ -268,6 +276,10 @@ public class EmployeeMasterService {
         }
     }
 
+    private static String nullIfBlank(String s) {
+        return (s == null || s.isBlank()) ? null : s.trim();
+    }
+
     private static EmployeeSummaryResponse toSummary(Employee e, EmployeeAccount a) {
         var b = EmployeeSummaryResponse.builder()
                 .employeeId(e.getEmployeeId())
@@ -277,7 +289,12 @@ public class EmployeeMasterService {
                 .inviteEmail(e.getInviteEmail())
                 .hourlyCost(e.getHourlyCost())
                 .activeFlag(e.getActiveFlag())
-                .photoFilename(e.getPhotoFilename());
+                .hireDate(e.getHireDate())
+                .photoFilename(e.getPhotoFilename())
+                .address(e.getAddress())
+                .phoneNumber(e.getPhoneNumber())
+                .birthDate(e.getBirthDate())
+                .gender(e.getGender());
         if (a == null) {
             return b.loginId(null).role(null).build();
         }

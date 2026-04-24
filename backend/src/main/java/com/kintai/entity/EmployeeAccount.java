@@ -30,4 +30,9 @@ public class EmployeeAccount {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(name = "current_status", nullable = false, length = 20)
+    private EmployeeStatus currentStatus = EmployeeStatus.PRESENT;
 }

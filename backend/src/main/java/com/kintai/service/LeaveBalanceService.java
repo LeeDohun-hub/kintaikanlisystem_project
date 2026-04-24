@@ -2,7 +2,9 @@ package com.kintai.service;
 
 import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.entity.Employee;
+import com.kintai.entity.Role;
 import com.kintai.entity.VacationStatus;
+import com.kintai.repository.EmployeeAccountRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.VacationRequestRepository;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Service
@@ -22,6 +25,7 @@ public class LeaveBalanceService {
     private static final int ELIGIBLE_MONTHS = 6;
 
     private final EmployeeRepository employeeRepository;
+    private final EmployeeAccountRepository employeeAccountRepository;
     private final VacationRequestRepository vacationRequestRepository;
 
     @Transactional(readOnly = true)
@@ -40,8 +44,40 @@ public class LeaveBalanceService {
 
         LocalDate grantDate = hire.plusMonths(ELIGIBLE_MONTHS);
         LocalDate today = asOfDate != null ? asOfDate : LocalDate.now();
+        boolean isAdmin = employeeAccountRepository.findById(employeeId)
+                .map(acc -> acc.getRole() == Role.ADMIN)
+                .orElse(false);
+
+        // 管理者は年休残数・入社6ヶ月ルールの対象外（申請・承認時の残数チェックもスキップ）
+        if (isAdmin) {
+            BigDecimal used = vacationRequestRepository.sumUsedDays(
+                    employeeId,
+                    hire,
+                    List.of(VacationStatus.PENDING, VacationStatus.APPROVED)
+            );
+            if (used == null) {
+                used = BigDecimal.ZERO;
+            }
+            used = used.setScale(1, RoundingMode.HALF_UP);
+            return LeaveBalanceResponse.builder()
+                    .employeeId(employeeId)
+                    .hireDate(hire)
+                    .grantDate(grantDate)
+                    .granted(true)
+                    .unlimitedAnnualLeave(true)
+                    .grantedDays(null)
+                    .monthsSinceGrant(0L)
+                    .usedDays(used)
+                    .remainingDays(null)
+                    .build();
+        }
+
         boolean granted = !today.isBefore(grantDate);
-        BigDecimal grantedDays = granted ? GRANT_DAYS : BigDecimal.ZERO;
+
+        long monthsSinceGrant = granted ? ChronoUnit.MONTHS.between(grantDate, today) : 0L;
+        BigDecimal grantedDays = granted
+                ? GRANT_DAYS.add(BigDecimal.valueOf(monthsSinceGrant))
+                : BigDecimal.ZERO;
 
         BigDecimal used = BigDecimal.ZERO;
         if (granted) {
@@ -60,7 +96,6 @@ public class LeaveBalanceService {
             remaining = BigDecimal.ZERO;
         }
 
-        // 0.5 単位に丸め（表示のブレ防止）
         remaining = remaining.setScale(1, RoundingMode.HALF_UP);
         used = used.setScale(1, RoundingMode.HALF_UP);
         grantedDays = grantedDays.setScale(1, RoundingMode.HALF_UP);
@@ -70,7 +105,9 @@ public class LeaveBalanceService {
                 .hireDate(hire)
                 .grantDate(grantDate)
                 .granted(granted)
+                .unlimitedAnnualLeave(false)
                 .grantedDays(grantedDays)
+                .monthsSinceGrant(monthsSinceGrant)
                 .usedDays(used)
                 .remainingDays(remaining)
                 .build();

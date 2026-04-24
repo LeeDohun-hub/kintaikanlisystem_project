@@ -13,6 +13,8 @@ import EmployeePicker from "../../components/EmployeePicker";
 import { useEmployees } from "../../hooks/useEmployees";
 import { useYearMonthState } from "../../hooks/useYearMonthState";
 import { formatMinutesAsHm, parseHmToMinutes } from "../../utils/timeFormat";
+import { isHolidayOrWeekend } from "../../utils/japaneseHolidays";
+import { timeStrToMinutes, validateOutingVsWork } from "../../utils/outingValidation";
 
 function WorkInput() {
   const { user } = useAuth();
@@ -33,10 +35,11 @@ function WorkInput() {
     startTime: "09:00",
     endTime: "18:00",
     breakHm: "1:00",
-    isHoliday: false,
+    isHoliday: isHolidayOrWeekend(today),
     remarks: "",
+    outingStartTime: "",
+    outingEndTime: "",
   });
-  const [outingStart, setOutingStart] = useState(null); // "HH:mm" | null
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
 
@@ -52,7 +55,11 @@ function WorkInput() {
 
   const handleChange = (e) => {
     const { name, type, value, checked } = e.target;
-    setForm({ ...form, [name]: type === "checkbox" ? checked : value });
+    const next = { ...form, [name]: type === "checkbox" ? checked : value };
+    if (name === "workDate" && isAdmin) {
+      next.isHoliday = isHolidayOrWeekend(value);
+    }
+    setForm(next);
   };
 
   const nowHm = () => {
@@ -70,27 +77,32 @@ function WorkInput() {
     setForm((p) => ({ ...p, workDate: today, endTime: nowHm() }));
   };
 
-  const onOutingToggle = () => {
+  const onOutingStartNow = () => {
     const t = nowHm();
-    if (!outingStart) {
-      setOutingStart(t);
-      setForm((p) => ({
-        ...p,
-        remarks: p.remarks ? `${p.remarks}\n[外出] ${t}〜` : `[外出] ${t}〜`,
-      }));
-      return;
-    }
-    const startM = parseHmToMinutes(outingStart);
-    const endM = parseHmToMinutes(t);
-    const delta = Number.isNaN(startM) || Number.isNaN(endM) ? 0 : Math.max(0, endM - startM);
-    const curBreak = parseHmToMinutes(form.breakHm);
-    const nextBreak = Number.isNaN(curBreak) ? delta : curBreak + delta;
-    setForm((p) => ({
-      ...p,
-      breakHm: formatMinutesAsHm(nextBreak),
-      remarks: (p.remarks || "").replace(/\[外出\]\s(\d{2}:\d{2})〜\s*$/m, `[外出] $1〜${t}`),
-    }));
-    setOutingStart(null);
+    setForm((p) => ({ ...p, outingStartTime: t }));
+  };
+
+  /** 外出復帰：現在時刻を終了に。外出が2時間超なら終業も同時刻（退勤扱い） */
+  const onOutingEndNow = () => {
+    const t = nowHm();
+    setForm((p) => {
+      const osm = timeStrToMinutes(p.outingStartTime);
+      const tem = timeStrToMinutes(t);
+      const over =
+        osm != null &&
+        !Number.isNaN(osm) &&
+        tem != null &&
+        !Number.isNaN(tem) &&
+        tem - osm > 120;
+      if (over) {
+        setTimeout(() => {
+          setSuccess("外出が2時間を超えたため、終業時刻を復帰時刻に合わせました（退勤扱い）。");
+          setTimeout(() => setSuccess(""), 4000);
+        }, 0);
+        return { ...p, outingEndTime: t, endTime: t };
+      }
+      return { ...p, outingEndTime: t };
+    });
   };
 
   const handleSubmit = async (e) => {
@@ -106,15 +118,30 @@ function WorkInput() {
       setError("休憩時間が正しい範囲かご確認ください。");
       return;
     }
+    const ov = validateOutingVsWork({
+      workStart: form.startTime,
+      workEnd: form.endTime,
+      outingStart: form.outingStartTime,
+      outingEnd: form.outingEndTime,
+    });
+    if (!ov.ok) {
+      setError(ov.message);
+      return;
+    }
+    const payload = {
+      workDate: form.workDate,
+      startTime: form.startTime,
+      endTime: form.endTime,
+      breakMinutes,
+      ...(isAdmin ? { isHoliday: !!form.isHoliday } : null),
+      remarks: form.remarks.trim() || undefined,
+    };
+    const os = (form.outingStartTime || "").trim().slice(0, 5);
+    const oe = (form.outingEndTime || "").trim().slice(0, 5);
+    if (os) payload.outingStartTime = os;
+    if (oe) payload.outingEndTime = oe;
     try {
-      await createWorkTime({
-        workDate: form.workDate,
-        startTime: form.startTime,
-        endTime: form.endTime,
-        breakMinutes,
-        ...(isAdmin ? { isHoliday: !!form.isHoliday } : null),
-        remarks: form.remarks.trim() || undefined,
-      }, isAdmin ? employeeId : undefined);
+      await createWorkTime(payload, isAdmin ? employeeId : undefined);
       setSuccess("勤務情報を保存しました。");
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
@@ -158,8 +185,12 @@ function WorkInput() {
             existing?.breakMinutes != null
               ? formatMinutesAsHm(existing.breakMinutes)
               : "1:00",
-          isHoliday: !!existing?.isHoliday,
+          isHoliday: existing ? !!existing.isHoliday : isHolidayOrWeekend(workDate),
           remarks: existing?.remarks ?? "",
+          outingStartTime: existing?.outingStartTime
+            ? String(existing.outingStartTime).slice(0, 5)
+            : "",
+          outingEndTime: existing?.outingEndTime ? String(existing.outingEndTime).slice(0, 5) : "",
           _hasExisting: !!existing,
         });
       }
@@ -206,8 +237,12 @@ function WorkInput() {
 
   const validateMonthlyRow = (r) => {
     if (!r._checked) return { ok: true, skip: true, hasAny: false };
+    const hasOutingField = (r.outingStartTime || "").trim() || (r.outingEndTime || "").trim();
     const hasAny =
       (r.startTime || "").trim() !== "" || (r.endTime || "").trim() !== "";
+    if (hasOutingField && !hasAny) {
+      return { ok: false, message: "外出がある行には開始・終了時刻も入力してください。", hasAny: false };
+    }
     if (!hasAny) return { ok: true, skip: false, hasAny: false };
     if (!r.startTime || !r.endTime) {
       return { ok: false, message: "開始/終了を入力してください。", hasAny: true };
@@ -238,6 +273,22 @@ function WorkInput() {
         hasAny: true,
       };
     }
+    const os = (r.outingStartTime || "").trim();
+    const oe = (r.outingEndTime || "").trim();
+    if (!os && oe) {
+      return { ok: false, message: "外出開始を入力するか、外出終了を空にしてください。", hasAny: true };
+    }
+    if (os || oe) {
+      const ov = validateOutingVsWork({
+        workStart: r.startTime,
+        workEnd: r.endTime,
+        outingStart: os,
+        outingEnd: oe,
+      });
+      if (!ov.ok) {
+        return { ok: false, message: ov.message, hasAny: true };
+      }
+    }
     if ((r.remarks || "").length > 500) {
       return { ok: false, message: "備考は500文字以下です。", hasAny: true };
     }
@@ -266,14 +317,19 @@ function WorkInput() {
         continue;
       }
 
-      items.push({
+      const item = {
         workDate: r.workDate,
         startTime: r.startTime,
         endTime: r.endTime,
         breakMinutes: v.breakMinutes,
         ...(isAdmin ? { isHoliday: !!r.isHoliday } : null),
         remarks: (r.remarks || "").trim() || undefined,
-      });
+      };
+      const os = (r.outingStartTime || "").trim().slice(0, 5);
+      const oe = (r.outingEndTime || "").trim().slice(0, 5);
+      if (os) item.outingStartTime = os;
+      if (oe) item.outingEndTime = oe;
+      items.push(item);
     }
 
     if (items.length === 0 && deleteIds.length === 0) {
@@ -316,7 +372,13 @@ function WorkInput() {
     const [eh, em] = form.endTime.split(":").map(Number);
     const br = parseHmToMinutes(form.breakHm);
     const breakMins = Number.isNaN(br) ? 0 : br;
-    const mins = eh * 60 + em - (sh * 60 + sm) - breakMins;
+    const os = timeStrToMinutes(form.outingStartTime);
+    const oe = timeStrToMinutes(form.outingEndTime);
+    let outingMins = 0;
+    if (os != null && oe != null && !Number.isNaN(os) && !Number.isNaN(oe) && oe > os) {
+      outingMins = oe - os;
+    }
+    const mins = eh * 60 + em - (sh * 60 + sm) - breakMins - outingMins;
     return Math.max(0, mins);
   };
 
@@ -365,12 +427,15 @@ function WorkInput() {
             <button type="button" className="primary" onClick={onPunchOut} style={{ background: "#dc2626" }}>
               退勤
             </button>
-            <button type="button" className="primary" onClick={onOutingToggle} style={{ background: "#2563eb" }}>
-              {outingStart ? "外出→戻り" : "外出"}
+            <button type="button" className="secondary" onClick={onOutingStartNow} style={{ borderColor: "#2563eb", color: "#1d4ed8" }}>
+              外出開始
             </button>
-            {outingStart ? (
+            <button type="button" className="secondary" onClick={onOutingEndNow} style={{ borderColor: "#2563eb", color: "#1d4ed8" }}>
+              外出復帰
+            </button>
+            {form.outingStartTime && !form.outingEndTime ? (
               <span style={{ fontSize: 12, color: "#2563eb", fontWeight: 700, alignSelf: "center" }}>
-                外出中: {outingStart}〜
+                外出中: {form.outingStartTime}〜
               </span>
             ) : null}
           </div>
@@ -421,6 +486,26 @@ function WorkInput() {
                   style={{ maxWidth: 120 }}
                 />
               </div>
+              <div className="form-group">
+                <label>外出開始（任意）</label>
+                <input
+                  type="time"
+                  name="outingStartTime"
+                  value={form.outingStartTime}
+                  onChange={handleChange}
+                  style={{ maxWidth: 140 }}
+                />
+              </div>
+              <div className="form-group">
+                <label>外出終了（任意）</label>
+                <input
+                  type="time"
+                  name="outingEndTime"
+                  value={form.outingEndTime}
+                  onChange={handleChange}
+                  style={{ maxWidth: 140 }}
+                />
+              </div>
               {isAdmin ? (
                 <div className="form-group" style={{ minWidth: 140 }}>
                   <label>休日勤務</label>
@@ -460,7 +545,9 @@ function WorkInput() {
             >
               <strong>実働(当日) 参考:</strong>{" "}
               {formatMinutesAsHm(calcDailyMinutes())}{" "}
-              <span style={{ color: "#666" }}>(勤務表の H:MM 表記)</span>
+              <span style={{ color: "#666" }}>
+                (勤務表の H:MM 表記 · 外出は始終入力時に実働から控除 · 外出2時間超は終業＝復帰で退勤扱い)
+              </span>
             </div>
 
             <button type="submit" className="primary">
@@ -559,6 +646,8 @@ function WorkInput() {
                     <th style={{ width: 120 }}>開始</th>
                     <th style={{ width: 120 }}>終了</th>
                     <th style={{ width: 120 }}>休憩(H:MM)</th>
+                    <th style={{ width: 120 }}>外出開始</th>
+                    <th style={{ width: 120 }}>外出終了</th>
                     {isAdmin ? <th style={{ width: 120 }}>休日勤務</th> : null}
                     <th style={{ minWidth: 240 }}>備考</th>
                   </tr>
@@ -597,6 +686,20 @@ function WorkInput() {
                           inputMode="numeric"
                           pattern="\d{1,2}:\d{2}"
                           style={{ maxWidth: 110 }}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="time"
+                          value={r.outingStartTime || ""}
+                          onChange={(e) => updateMonthlyCell(idx, "outingStartTime", e.target.value)}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="time"
+                          value={r.outingEndTime || ""}
+                          onChange={(e) => updateMonthlyCell(idx, "outingEndTime", e.target.value)}
                         />
                       </td>
                       {isAdmin ? (

@@ -27,4 +27,9 @@ public class EmployeeSummaryResponse {
     private String loginId;
     private String role;
     private String photoFilename;
+
+    private String address;
+    private String phoneNumber;
+    private java.time.LocalDate birthDate;
+    private String gender;
 }

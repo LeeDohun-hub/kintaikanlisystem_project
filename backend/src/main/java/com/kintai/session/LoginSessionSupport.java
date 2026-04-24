@@ -55,6 +55,7 @@ public final class LoginSessionSupport {
                     .employeeCode(stringVal(m.get("employeeCode")))
                     .name(stringVal(m.get("name")))
                     .role(role)
+                    .status(stringVal(m.get("status")))
                     .build();
         } catch (RuntimeException ex) {
             return null;

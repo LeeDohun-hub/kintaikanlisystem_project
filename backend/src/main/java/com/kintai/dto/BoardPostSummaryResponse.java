@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class BoardPostSummaryResponse {
     private Long postId;
+    private String category;
+    private boolean pinned;
     private String title;
     private Long authorId;
     private String authorName;

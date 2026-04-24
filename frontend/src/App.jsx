@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import Login from "./pages/Login";
 import WorkInput from "./pages/employee/WorkInput";
@@ -36,6 +36,18 @@ function MenuRoute() {
     return <Navigate to="/work-input" replace />;
   }
   return <MainMenu />;
+}
+
+/** 旧 URL /board/:id を /board/post/:id へ */
+function LegacyBoardPostRedirect() {
+  const { postId } = useParams();
+  const [searchParams] = useSearchParams();
+  const qs = searchParams.toString();
+  const suffix = qs ? `?${qs}` : "";
+  if (/^\d+$/.test(String(postId ?? ""))) {
+    return <Navigate to={`/board/post/${postId}${suffix}`} replace />;
+  }
+  return <Navigate to="/board" replace />;
 }
 
 /** 勤怠入力は一般社員のみ。管理者はメニューへ誘導（代表者要望）。 */
@@ -148,6 +160,14 @@ function AppRoutes() {
           }
         />
         <Route
+          path="board/post/:postId"
+          element={
+            <PrivateRoute>
+              <BoardDetail />
+            </PrivateRoute>
+          }
+        />
+        <Route
           path="board"
           element={
             <PrivateRoute>
@@ -159,7 +179,7 @@ function AppRoutes() {
           path="board/:postId"
           element={
             <PrivateRoute>
-              <BoardDetail />
+              <LegacyBoardPostRedirect />
             </PrivateRoute>
           }
         />

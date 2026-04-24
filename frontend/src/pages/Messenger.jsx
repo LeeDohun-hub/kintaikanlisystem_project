@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import BackToMenuLink from "../components/BackToMenuLink";
+import StatusBadge from "../components/StatusBadge";
+import EmployeePhotoThumb from "../components/EmployeePhotoThumb";
 
 function formatTime(iso) {
   if (!iso) return "";
@@ -175,7 +177,7 @@ export default function Messenger() {
   // ── レンダリング ──────────────────────────────────────────────
   return (
     <div className="page-container" style={{ paddingBottom: 0 }}>
-      <h2 className="page-title">社内メッセージ</h2>
+      <h2 className="page-title">社内メッセンジャー</h2>
 
       {error && <div className="error-msg" style={{ marginBottom: 12 }}>{error}</div>}
 
@@ -317,18 +319,16 @@ export default function Messenger() {
                       onMouseEnter={(ev) => (ev.currentTarget.style.background = "#f0f4ff")}
                       onMouseLeave={(ev) => (ev.currentTarget.style.background = "transparent")}
                     >
-                      <div
-                        style={{
-                          width: 36, height: 36, borderRadius: "50%",
-                          background: "#dde3ec", display: "flex",
-                          alignItems: "center", justifyContent: "center",
-                          fontSize: 18, flexShrink: 0,
-                        }}
-                      >
-                        👤
-                      </div>
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 14 }}>{e.employeeName}</div>
+                      <EmployeePhotoThumb
+                        employeeId={e.employeeId}
+                        photoFilename={e.photoFilename}
+                        size={36}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ fontWeight: 600, fontSize: 14 }}>{e.employeeName}</span>
+                          <StatusBadge status={e.status ?? "PRESENT"} />
+                        </div>
                         {e.department && (
                           <div style={{ fontSize: 12, color: "#888" }}>{e.department}</div>
                         )}

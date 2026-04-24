@@ -22,6 +22,8 @@ public final class WorkTimeMapper {
                 .workDate(w.getWorkDate())
                 .startTime(w.getStartTime())
                 .endTime(w.getEndTime())
+                .outingStartTime(w.getOutingStartTime())
+                .outingEndTime(w.getOutingEndTime())
                 .breakMinutes(w.getBreakMinutes())
                 .isHoliday(w.isHoliday())
                 .workMinutes(daily)

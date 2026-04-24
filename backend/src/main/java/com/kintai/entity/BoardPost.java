@@ -21,6 +21,15 @@ public class BoardPost {
     @Column(name = "post_id")
     private Long postId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", nullable = false, length = 20)
+    @Builder.Default
+    private BoardCategory category = BoardCategory.FREE;
+
+    @Column(name = "pinned", nullable = false)
+    @Builder.Default
+    private boolean pinned = false;
+
     @Column(nullable = false, length = 200)
     private String title;
 

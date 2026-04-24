@@ -183,6 +183,10 @@ public class EmployeeController {
                         .loginId(null)
                         .role(null)
                         .photoFilename(e.getPhotoFilename())
+                        .address(e.getAddress())
+                        .phoneNumber(e.getPhoneNumber())
+                        .birthDate(e.getBirthDate())
+                        .gender(e.getGender())
                         .build());
     }
 
@@ -199,6 +203,10 @@ public class EmployeeController {
                 .loginId(a.getLoginId())
                 .role(a.getRole().name())
                 .photoFilename(e.getPhotoFilename())
+                .address(e.getAddress())
+                .phoneNumber(e.getPhoneNumber())
+                .birthDate(e.getBirthDate())
+                .gender(e.getGender())
                 .build();
     }
 }

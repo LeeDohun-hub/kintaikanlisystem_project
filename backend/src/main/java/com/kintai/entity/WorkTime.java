@@ -38,6 +38,14 @@ public class WorkTime {
     @Column(name = "end_time", nullable = false)
     private LocalTime endTime;
 
+    /** 外出開始（任意） */
+    @Column(name = "outing_start_time")
+    private LocalTime outingStartTime;
+
+    /** 外出復帰（任意） */
+    @Column(name = "outing_end_time")
+    private LocalTime outingEndTime;
+
     @Column(name = "break_minutes", nullable = false)
     private Integer breakMinutes;
 
