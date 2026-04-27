@@ -252,6 +252,8 @@ export default function ReportOutput() {
                   <th>日付</th>
                   <th>始業</th>
                   <th>終業</th>
+                  <th>外出開始</th>
+                  <th>外出終了</th>
                   <th>休憩</th>
                   <th>実働(当日)</th>
                   <th className="col-numeric">残業</th>
@@ -264,7 +266,7 @@ export default function ReportOutput() {
               <tbody>
                 {filteredHistoryRows.length === 0 ? (
                   <tr>
-                    <td colSpan={10}>
+                    <td colSpan={12}>
                       {skipHistoryFetch ? "—" : "データがありません。"}
                     </td>
                   </tr>
@@ -290,6 +292,12 @@ export default function ReportOutput() {
                       </td>
                       <td>{r.startTime}</td>
                       <td>{r.endTime}</td>
+                      <td>
+                        {r.outingStartTime ? String(r.outingStartTime).slice(0, 5) : "—"}
+                      </td>
+                      <td>
+                        {r.outingEndTime ? String(r.outingEndTime).slice(0, 5) : "—"}
+                      </td>
                       <td>{formatMinutesAsHm(r.breakMinutes)}</td>
                       <td>
                         {r.dailyWorkHm ?? formatMinutesAsHm(r.workMinutes)}

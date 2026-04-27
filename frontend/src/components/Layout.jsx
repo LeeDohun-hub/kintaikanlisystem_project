@@ -60,6 +60,7 @@ function TopBarPhoto({ employeeId, photoVersion, onEditClick, size = 40 }) {
 }
 
 const EMPLOYEE_NAV = [
+  { to: "/menu", label: "メニュー", icon: "🏠" },
   { to: "/work-input", label: "勤怠入力", icon: "📝" },
   { to: "/work-history", label: "勤務履歴", icon: "📅" },
   { to: "/board", label: "掲示板", icon: "📌" },
@@ -222,21 +223,12 @@ function Layout() {
       <header className="top-bar">
         <div className="top-bar-brand">
           <NavLink
-            to={user?.role === "ADMIN" ? "/menu" : "/work-input"}
+            to="/menu"
             className="top-bar-brand-link"
             title="ホームへ"
           >
             <img src="/smtlogo.png" alt="smartee Japan" className="top-bar-brand-logo" width="168" height="32" />
           </NavLink>
-        </div>
-        <div className="top-bar-search-wrap">
-          <input
-            type="search"
-            className="top-bar-search"
-            placeholder="機能名で絞り込み（準備中）"
-            aria-label="検索"
-            readOnly
-          />
         </div>
         <div className="top-bar-actions">
           <TopBarPhoto

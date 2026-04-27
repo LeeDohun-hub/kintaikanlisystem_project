@@ -116,15 +116,17 @@ public class ReportController {
         doc.add(new Paragraph(" ", normal));
         doc.add(new Paragraph(" ", normal));
 
-        // work-history 画面と同一: 日付 / 始業 / 終業 / 休憩 / 実働(当日) / 実働(累計) / 備考
-        PdfPTable detailTable = new PdfPTable(7);
+        // work-history 画面と同一 + 外出: 日付 / 始業 / 終業 / 外出開始 / 外出終了 / 休憩 / 実働(当日) / 実働(累計) / 備考
+        PdfPTable detailTable = new PdfPTable(9);
         detailTable.setWidthPercentage(100);
-        detailTable.setWidths(new float[]{2.6f, 1.5f, 1.5f, 1.4f, 1.6f, 1.6f, 5.0f});
+        detailTable.setWidths(new float[]{2.5f, 1.35f, 1.35f, 1.35f, 1.35f, 1.2f, 1.55f, 1.55f, 5.0f});
         detailTable.setHeaderRows(1);
 
         addHeader(detailTable, "日付", headerFont);
         addHeader(detailTable, "始業", headerFont);
         addHeader(detailTable, "終業", headerFont);
+        addHeader(detailTable, "外出開始", headerFont);
+        addHeader(detailTable, "外出終了", headerFont);
         addHeader(detailTable, "休憩", headerFont);
         addHeader(detailTable, "実働(当日)", headerFont);
         addHeader(detailTable, "実働(累計)", headerFont);
@@ -138,11 +140,16 @@ public class ReportController {
             addCell(detailTable, "-", normal);
             addCell(detailTable, "-", normal);
             addCell(detailTable, "-", normal);
+            addCell(detailTable, "-", normal);
+            addCell(detailTable, "-", normal);
+            addCell(detailTable, "-", normal);
         } else {
             for (WorkTimeResponse w : detailLines) {
                 addCell(detailTable, formatPdfDate(w.getWorkDate()), normal);
                 addCell(detailTable, formatPdfTime(w.getStartTime()), normal);
                 addCell(detailTable, formatPdfTime(w.getEndTime()), normal);
+                addCell(detailTable, formatPdfTime(w.getOutingStartTime()), normal);
+                addCell(detailTable, formatPdfTime(w.getOutingEndTime()), normal);
                 int br = w.getBreakMinutes() != null ? w.getBreakMinutes() : 0;
                 addCell(detailTable, WorkTimeFormatUtil.minutesToHm(br), normal);
                 int daily = w.getWorkMinutes() != null ? w.getWorkMinutes() : 0;

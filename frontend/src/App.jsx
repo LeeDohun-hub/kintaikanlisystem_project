@@ -32,10 +32,6 @@ function PrivateRoute({ children, adminOnly = false }) {
 }
 
 function MenuRoute() {
-  const { user } = useAuth();
-  if (user?.role !== "ADMIN") {
-    return <Navigate to="/work-input" replace />;
-  }
   return <MainMenu />;
 }
 
@@ -67,7 +63,7 @@ function AppRoutes() {
   const defaultPath = user
     ? user.role === "ADMIN"
       ? "/menu"
-      : "/work-input"
+      : "/menu"
     : "/login";
 
   return (

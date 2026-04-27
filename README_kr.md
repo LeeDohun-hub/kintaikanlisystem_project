@@ -31,7 +31,7 @@ Java / Spring Boot 백엔드와 React（Vite）프론트로 구성된 근태 관
   - `/login-check`: 로그인 시도 이력
   - `/upload`: Excel 업로드(근태/근무표 일괄 가져오기)
   - `/attendance-import`: 근태 가져오기(관리자 화면)
-  - `/report`: 근태 리포트/월次 PDF 프리뷰
+  - `/report`: 근태 리포트/월별 PDF 프리뷰
   - `/dashboard`: 대시보드
   - `/work-view`: 근무 조회(관리자)
   - `/statistics`: 통계
