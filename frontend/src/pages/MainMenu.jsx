@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useMessengerUnread } from "../context/MessengerUnreadContext";
 
 function MenuCard({ to, title, desc, badge }) {
   return (
@@ -17,7 +18,16 @@ function MenuCard({ to, title, desc, badge }) {
 
 export default function MainMenu() {
   const { user } = useAuth();
+  const { unreadCount } = useMessengerUnread();
   const isAdmin = user?.role === "ADMIN";
+
+  const messengerBadge =
+    unreadCount > 0
+      ? {
+          type: "unread",
+          text: unreadCount > 99 ? "未読 99+" : `未読 ${unreadCount}件`,
+        }
+      : null;
 
   return (
     <div className="page-container main-menu-page">
@@ -70,8 +80,9 @@ export default function MainMenu() {
             />
             <MenuCard
               to="/messenger"
-              title="社内メッセンジャー"
+              title="メッセンジャー"
               desc="社員間で1対1のメッセージをやり取りします。"
+              badge={messengerBadge}
             />
             <MenuCard
               to="/vacation"
@@ -101,6 +112,7 @@ export default function MainMenu() {
               to="/messenger"
               title="社内メッセージ"
               desc="社員間で1対1のメッセージをやり取りします。"
+              badge={messengerBadge}
             />
             <MenuCard
               to="/vacation"

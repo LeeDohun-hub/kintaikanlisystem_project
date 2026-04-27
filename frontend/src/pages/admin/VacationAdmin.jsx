@@ -2,7 +2,16 @@ import React, { useEffect, useState, useCallback } from "react";
 import api from "../../api/api";
 import BackToMenuLink from "../../components/BackToMenuLink";
 
-const TYPE_LABEL = { FULL: "全休", HALF_AM: "午前半休", HALF_PM: "午後半休" };
+const TYPE_LABEL = {
+  FULL: "全休", HALF_AM: "午前半休", HALF_PM: "午後半休",
+  CONDOLENCE_OWN_MARRIAGE:   "慶弔（本人結婚）",
+  CONDOLENCE_CHILD_MARRIAGE: "慶弔（子供結婚）",
+  CONDOLENCE_SPOUSE_BIRTH:   "慶弔（配偶者出産）",
+  CONDOLENCE_FUNERAL_1ST:    "忌引き（近親）",
+  CONDOLENCE_FUNERAL_2ND:    "忌引き（祖父母・兄弟）",
+  MATERNITY_PRE: "産前休暇", MATERNITY_POST: "産後休暇", CHILDCARE_LEAVE: "育児休職",
+  SICK_LEAVE: "病欠",
+};
 const STATUS_LABEL = { PENDING: "申請中", APPROVED: "承認済", REJECTED: "却下" };
 const STATUS_COLOR = {
   PENDING:  { background: "#fff8e1", color: "#b45309", border: "1px solid #fde68a" },
@@ -320,6 +329,7 @@ export default function VacationAdmin() {
                 <th>承認者</th>
                 <th>却下理由</th>
                 <th>申請日時</th>
+                <th>添付書類</th>
                 <th style={{ minWidth: 160 }}>操作</th>
               </tr>
             </thead>
@@ -359,6 +369,19 @@ export default function VacationAdmin() {
                     </td>
                     <td style={{ whiteSpace: "nowrap", fontSize: 12, color: "#888" }}>
                       {r.createdAt ? new Date(r.createdAt).toLocaleString("ja-JP") : ""}
+                    </td>
+                    <td style={{ whiteSpace: "nowrap" }}>
+                      {r.hasAttachment ? (
+                        <a
+                          href={`/api/vacations/${r.requestId}/attachment`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontSize: 12, color: "#1a56db", textDecoration: "none" }}
+                          title={r.attachmentName}
+                        >
+                          📎 書類確認
+                        </a>
+                      ) : "—"}
                     </td>
                     <td>
                       {pending ? (

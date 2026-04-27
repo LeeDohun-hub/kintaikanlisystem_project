@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { MessengerUnreadProvider } from "./context/MessengerUnreadContext";
 import Login from "./pages/Login";
 import WorkInput from "./pages/employee/WorkInput";
 import WorkHistory from "./pages/employee/WorkHistory";
@@ -81,7 +82,9 @@ function AppRoutes() {
         path="/"
         element={
           <PrivateRoute>
-            <Layout />
+            <MessengerUnreadProvider>
+              <Layout />
+            </MessengerUnreadProvider>
           </PrivateRoute>
         }
       >

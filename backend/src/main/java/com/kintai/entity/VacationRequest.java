@@ -25,7 +25,7 @@ public class VacationRequest {
     private Employee employee;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "vacation_type", nullable = false, length = 10)
+    @Column(name = "vacation_type", nullable = false, length = 40)
     private VacationType vacationType;
 
     @Column(name = "vacation_date", nullable = false)
@@ -48,6 +48,14 @@ public class VacationRequest {
 
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
+
+    /** 添付ファイル保存パス（経弔・産休育休・病欠で使用） */
+    @Column(name = "attachment_path", length = 255)
+    private String attachmentPath;
+
+    /** 添付ファイルの元のファイル名（表示用） */
+    @Column(name = "attachment_name", length = 255)
+    private String attachmentName;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;

@@ -82,27 +82,10 @@ function WorkInput() {
     setForm((p) => ({ ...p, outingStartTime: t }));
   };
 
-  /** 外出復帰：現在時刻を終了に。外出が2時間超なら終業も同時刻（退勤扱い） */
+  /** 外出復帰：現在時刻を終了に。 */
   const onOutingEndNow = () => {
     const t = nowHm();
-    setForm((p) => {
-      const osm = timeStrToMinutes(p.outingStartTime);
-      const tem = timeStrToMinutes(t);
-      const over =
-        osm != null &&
-        !Number.isNaN(osm) &&
-        tem != null &&
-        !Number.isNaN(tem) &&
-        tem - osm > 120;
-      if (over) {
-        setTimeout(() => {
-          setSuccess("外出が2時間を超えたため、終業時刻を復帰時刻に合わせました（退勤扱い）。");
-          setTimeout(() => setSuccess(""), 4000);
-        }, 0);
-        return { ...p, outingEndTime: t, endTime: t };
-      }
-      return { ...p, outingEndTime: t };
-    });
+    setForm((p) => ({ ...p, outingEndTime: t }));
   };
 
   const handleSubmit = async (e) => {
@@ -546,7 +529,7 @@ function WorkInput() {
               <strong>実働(当日) 参考:</strong>{" "}
               {formatMinutesAsHm(calcDailyMinutes())}{" "}
               <span style={{ color: "#666" }}>
-                (勤務表の H:MM 表記 · 外出は始終入力時に実働から控除 · 外出2時間超は終業＝復帰で退勤扱い)
+                (勤務表の H:MM 表記 · 外出は始終入力時に実働から控除)
               </span>
             </div>
 

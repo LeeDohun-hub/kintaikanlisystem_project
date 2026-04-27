@@ -11,7 +11,7 @@ export function timeStrToMinutes(t) {
 }
 
 /**
- * 外出が始業・終業の範囲内か、2時間超なら終業＝外出終了（退勤扱い）か。
+ * 外出が始業・終業の範囲内か。
  * @returns {{ ok: true } | { ok: false, message: string }}
  */
 export function validateOutingVsWork({ workStart, workEnd, outingStart, outingEnd }) {
@@ -50,14 +50,6 @@ export function validateOutingVsWork({ workStart, workEnd, outingStart, outingEn
   }
   if (os < ws || oe > we) {
     return { ok: false, message: "外出時間は始業・終業の範囲内で入力してください。" };
-  }
-  const dur = oe - os;
-  if (dur > 120 && oe !== we) {
-    return {
-      ok: false,
-      message:
-        "外出が2時間を超える場合は、終業時刻を外出復帰と同じ時刻にしてください（退勤扱い）。",
-    };
   }
   return { ok: true };
 }

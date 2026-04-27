@@ -6,8 +6,10 @@ import com.kintai.dto.WorkTimeResponse;
 import com.kintai.dto.mapper.WorkTimeMapper;
 import com.kintai.entity.Employee;
 import com.kintai.entity.WorkTime;
+import com.kintai.entity.WorkTimeOuting;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.WorkTimeRepository;
+import com.kintai.repository.WorkTimeOutingRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,14 +32,12 @@ public class WorkTimeService {
 
     private final WorkTimeRepository workTimeRepository;
     private final EmployeeRepository employeeRepository;
+    private final WorkTimeOutingRepository workTimeOutingRepository;
 
     @Transactional
     public WorkTimeResponse create(Long userId, WorkTimeCreateRequest req) {
         if (req.getWorkDate() == null || req.getStartTime() == null || req.getEndTime() == null) {
             throw new IllegalArgumentException("勤務日、開始・終了時刻は必須です。");
-        }
-        if (workTimeRepository.existsByEmployeeIdAndWorkDate(userId, req.getWorkDate())) {
-            throw new IllegalArgumentException("同一勤務日のデータが既に登録されています。");
         }
         int breakMins = req.getBreakMinutes() != null ? req.getBreakMinutes() : 0;
         if (breakMins < 0 || breakMins > 24 * 60) {
@@ -47,26 +47,41 @@ public class WorkTimeService {
             throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
         validateOutingAgainstWork(req.getStartTime(), req.getEndTime(), req.getOutingStartTime(), req.getOutingEndTime());
-        int workMins = computeWorkMinutes(
-                req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
         if (remarks != null && remarks.isEmpty()) {
             remarks = null;
         }
-        WorkTime entity = WorkTime.builder()
-                .employeeId(userId)
-                .workDate(req.getWorkDate())
-                .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
-                .startTime(req.getStartTime())
-                .endTime(req.getEndTime())
-                .outingStartTime(req.getOutingStartTime())
-                .outingEndTime(req.getOutingEndTime())
-                .breakMinutes(breakMins)
-                .workMinutes(workMins)
-                .remarks(remarks)
-                .build();
-        workTimeRepository.saveAndFlush(entity);
-        WorkTime persisted = workTimeRepository.findById(entity.getWorkId()).orElse(entity);
+
+        // 同一勤務日の2回目以降の保存を許可（上書き + 外出区間は追加）
+        WorkTime persisted = workTimeRepository.findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(userId, req.getWorkDate())
+                .orElseGet(() -> WorkTime.builder()
+                        .employeeId(userId)
+                        .workDate(req.getWorkDate())
+                        .build());
+
+        persisted.setHoliday(Boolean.TRUE.equals(req.getIsHoliday()));
+        persisted.setStartTime(req.getStartTime());
+        persisted.setEndTime(req.getEndTime());
+        persisted.setBreakMinutes(breakMins);
+        persisted.setRemarks(remarks);
+
+        // 互換用: 最後に入力された外出時刻は work_time にも保持（表示/編集用途）
+        persisted.setOutingStartTime(req.getOutingStartTime());
+        persisted.setOutingEndTime(req.getOutingEndTime());
+
+        workTimeRepository.saveAndFlush(persisted);
+
+        // 外出区間（開始・終了が揃っている場合のみ）を追加
+        if (req.getOutingStartTime() != null && req.getOutingEndTime() != null) {
+            appendOutingSegment(persisted, req.getOutingStartTime(), req.getOutingEndTime());
+        }
+
+        // 外出合計を控除して実働を再計算
+        int outingMinutes = totalOutingMinutes(persisted);
+        int workMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingMinutes);
+        persisted.setWorkMinutes(workMins);
+        workTimeRepository.saveAndFlush(persisted);
+
         Employee emp = employeeRepository.findById(userId).orElse(null);
         int cumulative = cumulativeMinutesForDay(userId, persisted.getWorkDate());
         return WorkTimeMapper.toResponse(persisted, emp, cumulative);
@@ -134,8 +149,7 @@ public class WorkTimeService {
                     throw new IllegalArgumentException("備考は500文字以下です。");
                 }
 
-                int workMins = computeWorkMinutes(
-                        req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
+                int outingMinutesForCompute = 0;
 
                 var existing = workTimeRepository.findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(userId, req.getWorkDate());
                 if (existing.isPresent()) {
@@ -149,11 +163,17 @@ public class WorkTimeService {
                     w.setOutingStartTime(req.getOutingStartTime());
                     w.setOutingEndTime(req.getOutingEndTime());
                     w.setBreakMinutes(breakMins);
-                    w.setWorkMinutes(workMins);
                     w.setRemarks(remarks);
+                    // bulk は「上書き」扱い: その日の外出区間を入れ替える
+                    workTimeOutingRepository.deleteByWorkId(w.getWorkId());
+                    if (req.getOutingStartTime() != null && req.getOutingEndTime() != null) {
+                        appendOutingSegment(w, req.getOutingStartTime(), req.getOutingEndTime());
+                    }
+                    outingMinutesForCompute = totalOutingMinutes(w);
+                    w.setWorkMinutes(computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingMinutesForCompute));
                     updated++;
                 } else {
-                    toInsert.add(WorkTime.builder()
+                    WorkTime newEntity = WorkTime.builder()
                             .employeeId(userId)
                             .workDate(req.getWorkDate())
                             .isHoliday(Boolean.TRUE.equals(req.getIsHoliday()))
@@ -162,9 +182,10 @@ public class WorkTimeService {
                             .outingStartTime(req.getOutingStartTime())
                             .outingEndTime(req.getOutingEndTime())
                             .breakMinutes(breakMins)
-                            .workMinutes(workMins)
                             .remarks(remarks)
-                            .build());
+                            .build();
+                    // insert は flush 後に work_id が必要（外出区間 FK）
+                    toInsert.add(newEntity);
                     inserted++;
                 }
             } catch (RuntimeException ex) {
@@ -176,6 +197,18 @@ public class WorkTimeService {
         }
 
         if (!toInsert.isEmpty()) {
+            workTimeRepository.saveAll(toInsert);
+            workTimeRepository.flush();
+            // insert 行の外出区間を作成 & 実働を再計算
+            for (WorkTime w : toInsert) {
+                if (w.getWorkId() == null) continue;
+                if (w.getOutingStartTime() != null && w.getOutingEndTime() != null) {
+                    appendOutingSegment(w, w.getOutingStartTime(), w.getOutingEndTime());
+                }
+                int outingMinutes = totalOutingMinutes(w);
+                int workMins = computeWorkMinutes(w.getStartTime(), w.getEndTime(), w.getBreakMinutes() != null ? w.getBreakMinutes() : 0, outingMinutes);
+                w.setWorkMinutes(workMins);
+            }
             workTimeRepository.saveAll(toInsert);
         }
 
@@ -205,8 +238,6 @@ public class WorkTimeService {
             throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
         }
         validateOutingAgainstWork(req.getStartTime(), req.getEndTime(), req.getOutingStartTime(), req.getOutingEndTime());
-        int workMins = computeWorkMinutes(
-                req.getStartTime(), req.getEndTime(), breakMins, req.getOutingStartTime(), req.getOutingEndTime());
         String remarks = req.getRemarks() != null ? req.getRemarks().trim() : null;
         if (remarks != null && remarks.isEmpty()) {
             remarks = null;
@@ -218,8 +249,16 @@ public class WorkTimeService {
         w.setOutingStartTime(req.getOutingStartTime());
         w.setOutingEndTime(req.getOutingEndTime());
         w.setBreakMinutes(breakMins);
-        w.setWorkMinutes(workMins);
         w.setRemarks(remarks);
+        workTimeRepository.saveAndFlush(w);
+
+        // update は「上書き」扱い: その日の外出区間を入れ替える
+        workTimeOutingRepository.deleteByWorkId(w.getWorkId());
+        if (req.getOutingStartTime() != null && req.getOutingEndTime() != null) {
+            appendOutingSegment(w, req.getOutingStartTime(), req.getOutingEndTime());
+        }
+        int outingMinutes = totalOutingMinutes(w);
+        w.setWorkMinutes(computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingMinutes));
         workTimeRepository.saveAndFlush(w);
         WorkTime persisted = workTimeRepository.findById(w.getWorkId()).orElse(w);
         Employee emp = employeeRepository.findById(ownerEmployeeId).orElse(null);
@@ -316,17 +355,15 @@ public class WorkTimeService {
     }
 
     private static int computeWorkMinutes(
-            LocalTime start, LocalTime end, int breakMinutes, LocalTime outingStart, LocalTime outingEnd) {
+            LocalTime start, LocalTime end, int breakMinutes, int outingMinutes) {
         int gross = (int) Duration.between(start, end).toMinutes();
-        int outing = 0;
-        if (outingStart != null && outingEnd != null && outingEnd.isAfter(outingStart)) {
-            outing = (int) Duration.between(outingStart, outingEnd).toMinutes();
-        }
-        return Math.max(0, gross - breakMinutes - outing);
+        int br = Math.max(0, breakMinutes);
+        int out = Math.max(0, outingMinutes);
+        return Math.max(0, gross - br - out);
     }
 
     /**
-     * 外出は勤務開始・終了の範囲内。2時間超の場合は「退勤扱い」＝勤務終了と外出復帰を同一時刻にすること。
+     * 外出は勤務開始・終了の範囲内。
      */
     private static void validateOutingAgainstWork(
             LocalTime workStart, LocalTime workEnd, LocalTime outingStart, LocalTime outingEnd) {
@@ -348,10 +385,44 @@ public class WorkTimeService {
         if (outingStart.isBefore(workStart) || outingEnd.isAfter(workEnd)) {
             throw new IllegalArgumentException("外出時間は勤務開始・終了の範囲内で入力してください。");
         }
-        long outingMins = Duration.between(outingStart, outingEnd).toMinutes();
-        if (outingMins > 120 && !outingEnd.equals(workEnd)) {
-            throw new IllegalArgumentException(
-                    "外出が2時間を超える場合は、勤務終了時刻を外出復帰と同じ時刻に設定してください（退勤扱い）。");
+    }
+
+    private void appendOutingSegment(WorkTime workTime, LocalTime outingStart, LocalTime outingEnd) {
+        if (workTime == null || workTime.getWorkId() == null) {
+            return;
         }
+        if (outingStart == null || outingEnd == null) {
+            return;
+        }
+        if (!outingStart.isBefore(outingEnd)) {
+            throw new IllegalArgumentException("外出開始は外出終了より前である必要があります。");
+        }
+        // 既存と同一の区間は二重登録しない（連打/再保存対策）
+        boolean exists = workTimeOutingRepository.existsByWorkIdAndStartTimeAndEndTime(
+                workTime.getWorkId(), outingStart, outingEnd);
+        if (exists) {
+            return;
+        }
+        workTimeOutingRepository.save(WorkTimeOuting.builder()
+                .workId(workTime.getWorkId())
+                .startTime(outingStart)
+                .endTime(outingEnd)
+                .build());
+    }
+
+    private int totalOutingMinutes(WorkTime w) {
+        if (w == null || w.getWorkId() == null) {
+            return 0;
+        }
+        long sum = workTimeOutingRepository.sumOutingMinutesByWorkId(w.getWorkId());
+        int fromSegments = (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
+        if (fromSegments > 0) {
+            return fromSegments;
+        }
+        // 互換: 区間テーブルが空の既存データは work_time の単一区間から計算
+        if (w.getOutingStartTime() != null && w.getOutingEndTime() != null && w.getOutingEndTime().isAfter(w.getOutingStartTime())) {
+            return (int) Duration.between(w.getOutingStartTime(), w.getOutingEndTime()).toMinutes();
+        }
+        return 0;
     }
 }

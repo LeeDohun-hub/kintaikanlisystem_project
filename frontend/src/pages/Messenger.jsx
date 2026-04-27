@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../api/api";
 import { useAuth } from "../context/AuthContext";
+import { useMessengerUnread } from "../context/MessengerUnreadContext";
 import BackToMenuLink from "../components/BackToMenuLink";
 import StatusBadge from "../components/StatusBadge";
 import EmployeePhotoThumb from "../components/EmployeePhotoThumb";
@@ -22,6 +23,7 @@ function formatTime(iso) {
 
 export default function Messenger() {
   const { user } = useAuth();
+  const { refresh: refreshUnread } = useMessengerUnread();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -42,17 +44,28 @@ export default function Messenger() {
 
   // ── データ読み込み ──────────────────────────────────────────────
   const loadConversations = useCallback(() => {
-    api.get("/messenger/conversations")
-      .then((r) => setConversations(r.data || []))
+    api
+      .get("/messenger/conversations")
+      .then((r) => {
+        setConversations(r.data || []);
+        refreshUnread();
+      })
       .catch(() => {});
-  }, []);
+  }, [refreshUnread]);
 
-  const loadMessages = useCallback((partnerId) => {
-    if (!partnerId) return;
-    api.get(`/messenger/conversation/${partnerId}`)
-      .then((r) => setMessages(r.data || []))
-      .catch(() => {});
-  }, []);
+  const loadMessages = useCallback(
+    (partnerId) => {
+      if (!partnerId) return;
+      api
+        .get(`/messenger/conversation/${partnerId}`)
+        .then((r) => {
+          setMessages(r.data || []);
+          refreshUnread();
+        })
+        .catch(() => {});
+    },
+    [refreshUnread],
+  );
 
   // 初回ロード
   useEffect(() => {
@@ -177,7 +190,7 @@ export default function Messenger() {
   // ── レンダリング ──────────────────────────────────────────────
   return (
     <div className="page-container" style={{ paddingBottom: 0 }}>
-      <h2 className="page-title">社内メッセンジャー</h2>
+      <h2 className="page-title">メッセンジャー</h2>
 
       {error && <div className="error-msg" style={{ marginBottom: 12 }}>{error}</div>}
 

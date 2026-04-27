@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Outlet, NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { BOARD_FAVORITE_BOARDS, DEFAULT_BOARD_CATEGORY } from "../constants/boardCategories";
 import { useAuth } from "../context/AuthContext";
+import { useMessengerUnread } from "../context/MessengerUnreadContext";
 import StatusBadge from "./StatusBadge";
 import ProfileEditModal from "./ProfileEditModal";
 import "./Layout.css";
@@ -62,7 +63,7 @@ const EMPLOYEE_NAV = [
   { to: "/work-input", label: "勤怠入力", icon: "📝" },
   { to: "/work-history", label: "勤務履歴", icon: "📅" },
   { to: "/board", label: "掲示板", icon: "📌" },
-  { to: "/messenger", label: "社内メッセンジャー", icon: "💬" },
+  { to: "/messenger", label: "メッセンジャー", icon: "💬" },
   { to: "/vacation", label: "休暇申請", icon: "🏖" },
 ];
 
@@ -73,7 +74,7 @@ const ADMIN_NAV = [
   { to: "/upload", label: "EXCELアップロード", icon: "📤" },
   { to: "/report", label: "勤怠履歴", icon: "📊" },
   { to: "/board", label: "掲示板", icon: "📌" },
-  { to: "/messenger", label: "社内メッセンジャー", icon: "💬" },
+  { to: "/messenger", label: "メッセンジャー", icon: "💬" },
   { to: "/vacation", label: "休暇申請", icon: "🏖" },
   { to: "/vacation-manage", label: "休暇申請管理", icon: "✅" },
 ];
@@ -87,7 +88,8 @@ const STATUS_OPTIONS = [
 
 function NavBoardDropdown({ panelClass, icon, label }) {
   const [searchParams] = useSearchParams();
-  const currentCat = searchParams.get("category") || DEFAULT_BOARD_CATEGORY;
+  // URL に category がないときは何も選択しない（デフォルト選択なし）
+  const currentCat = searchParams.get("category");
 
   return (
     <div className="nav-board-dropdown-wrap" tabIndex={0}>
@@ -110,6 +112,49 @@ function NavBoardDropdown({ panelClass, icon, label }) {
                   }
                 >
                   {b.label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </aside>
+    </div>
+  );
+}
+
+const VACATION_FLYOUT_ITEMS = [
+  { key: "ANNUAL",     label: "年次有給休暇" },
+  { key: "CONDOLENCE", label: "経弔休暇" },
+  { key: "MATERNITY",  label: "産休・育休" },
+  { key: "SICK",       label: "病欠" },
+];
+
+function NavVacationDropdown({ panelClass, icon, label }) {
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  // 休暇申請ページにいるときだけアクティブ項目を判定する
+  const isVacationPage = location.pathname === "/vacation";
+  const currentCat = isVacationPage ? searchParams.get("category") : null;
+
+  return (
+    <div className="nav-board-dropdown-wrap" tabIndex={0}>
+      <NavLink to="/vacation" className={panelClass}>
+        <span className="panel-nav-icon" aria-hidden="true">{icon}</span>
+        <span className="panel-nav-label">{label}</span>
+      </NavLink>
+      <aside className="nav-board-flyout" aria-label="休暇申請カテゴリ">
+        <div className="nav-board-flyout-inner">
+          <p className="nav-board-flyout-heading">新規申請</p>
+          <ul className="nav-board-flyout-list">
+            {VACATION_FLYOUT_ITEMS.map((item) => (
+              <li key={item.key}>
+                <NavLink
+                  to={`/vacation?category=${item.key}`}
+                  className={() =>
+                    "nav-board-flyout-link" + (currentCat === item.key ? " is-active" : "")
+                  }
+                >
+                  {item.label}
                 </NavLink>
               </li>
             ))}
@@ -156,6 +201,7 @@ function StatusSelector({ status, onChange }) {
 
 function Layout() {
   const { user, logout, changeStatus } = useAuth();
+  const { unreadCount } = useMessengerUnread();
   const navigate = useNavigate();
   const [photoVersion, setPhotoVersion] = useState(() => Date.now());
   const [profileModalOpen, setProfileModalOpen] = useState(false);
@@ -213,18 +259,34 @@ function Layout() {
       <div className="app-body">
         <aside className="nav-panel" aria-label="メニュー">
           <nav className="nav-panel-links">
-            {links.map(({ to, label, icon }) =>
-              to === "/board" ? (
-                <NavBoardDropdown key={to} panelClass={panelClass} icon={icon} label={label} />
-              ) : (
+            {links.map(({ to, label, icon }) => {
+              if (to === "/board") {
+                return <NavBoardDropdown key={to} panelClass={panelClass} icon={icon} label={label} />;
+              }
+              if (to === "/vacation") {
+                return <NavVacationDropdown key={to} panelClass={panelClass} icon={icon} label={label} />;
+              }
+              if (to === "/messenger") {
+                const n = unreadCount > 99 ? "99+" : String(unreadCount);
+                return (
+                  <NavLink key={to} to={to} className={panelClass} end={to === "/menu"}>
+                    <span className="panel-nav-icon" aria-hidden="true">{icon}</span>
+                    <span className="panel-nav-label">{label}</span>
+                    {unreadCount > 0 ? (
+                      <span className="nav-messenger-badge" title={`未読メッセージ ${unreadCount}件`}>
+                        {n}
+                      </span>
+                    ) : null}
+                  </NavLink>
+                );
+              }
+              return (
                 <NavLink key={to} to={to} className={panelClass} end={to === "/menu"}>
-                  <span className="panel-nav-icon" aria-hidden="true">
-                    {icon}
-                  </span>
+                  <span className="panel-nav-icon" aria-hidden="true">{icon}</span>
                   <span className="panel-nav-label">{label}</span>
                 </NavLink>
-              ),
-            )}
+              );
+            })}
           </nav>
         </aside>
 

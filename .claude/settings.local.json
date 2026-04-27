@@ -33,7 +33,9 @@
       "Bash(./mvnw compile *)",
       "Bash(./gradlew compileJava -q)",
       "Bash(npx tsc *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(mvn compile *)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }

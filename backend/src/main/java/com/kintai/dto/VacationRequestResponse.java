@@ -25,4 +25,8 @@ public class VacationRequestResponse {
     private LocalDateTime approvedAt;
     private String rejectReason;
     private LocalDateTime createdAt;
+    /** 添付ファイルが存在する場合 true */
+    private boolean hasAttachment;
+    /** 添付ファイルの元のファイル名（表示用） */
+    private String attachmentName;
 }

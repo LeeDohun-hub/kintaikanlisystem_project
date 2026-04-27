@@ -10,8 +10,16 @@
 - **Admin tools**: employee master, login attempts, import, reports/statistics
 - **Board**: posts + comments (`/api/board`)
 - **Messenger**: 1:1 conversations (`/api/messenger`)
+  - Unread badge: `GET /api/messenger/unread-count` (shown in menu)
 - **Vacation**: submit/cancel (employee), approve/reject (admin) (`/api/vacations`)
 - **Employee photo**: admin upload + authenticated fetch (`/api/employees/{id}/photo`)
+
+## Recent changes
+
+- **WorkTime outings (multiple segments)**: outings can be recorded multiple times within the same work day.
+  - Outing segments are stored in `work_time_outing` (Flyway: `V18__work_time_outing_segments.sql`).
+  - The old “outing > 2 hours => treat as clock-out” restriction is removed.
+- **Monthly metrics warnings**: the monthly metrics panel can show warning messages when overtime/holiday work exceeds thresholds.
 
 ## Tests / テスト / 테스트
 

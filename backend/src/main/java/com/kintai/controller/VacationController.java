@@ -1,5 +1,6 @@
 package com.kintai.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.dto.VacationRejectRequest;
@@ -10,9 +11,21 @@ import com.kintai.session.LoginSessionSupport;
 import com.kintai.web.ApiResponses;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.PathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @RestController
 @RequestMapping("/api/vacations")
@@ -21,10 +34,10 @@ public class VacationController {
 
     private final VacationService vacationService;
     private final LeaveBalanceService leaveBalanceService;
+    private final ObjectMapper objectMapper;
 
     // ── 社員向け ────────────────────────────────────────────────
 
-    /** 自分の申請一覧 */
     @GetMapping("/my")
     public ResponseEntity<?> myRequests(HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
@@ -32,42 +45,96 @@ public class VacationController {
         return ResponseEntity.ok(vacationService.getMyRequests(user.getId()));
     }
 
-    /** 休暇申請 */
-    @PostMapping
-    public ResponseEntity<?> submit(@RequestBody VacationSubmitRequest req, HttpSession session) {
+    /**
+     * 休暇申請（multipart/form-data）
+     * - request パート: VacationSubmitRequest の JSON 文字列
+     * - file パート   : 添付書類（任意、PDF / 画像）
+     */
+    @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    public ResponseEntity<?> submit(
+            @RequestPart(value = "request", required = false) String requestJson,
+            @RequestBody(required = false) VacationSubmitRequest bodyReq,
+            @RequestPart(value = "file", required = false) MultipartFile file,
+            HttpSession session) {
+
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
+
         try {
-            return ResponseEntity.ok(vacationService.submit(user, req));
+            VacationSubmitRequest req;
+            if (requestJson != null) {
+                req = objectMapper.readValue(requestJson, VacationSubmitRequest.class);
+            } else if (bodyReq != null) {
+                req = bodyReq;
+            } else {
+                return ApiResponses.badRequest("リクエストデータが不正です。");
+            }
+            return ResponseEntity.ok(vacationService.submit(user, req, file));
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
+        } catch (IOException e) {
+            return ApiResponses.badRequest("リクエストのパースに失敗しました。");
         }
     }
 
-    /** 年休残数（本人） */
+    /** 添付ファイルのダウンロード */
+    @GetMapping("/{requestId}/attachment")
+    public ResponseEntity<?> downloadAttachment(
+            @PathVariable("requestId") Long requestId,
+            HttpSession session) {
+
+        LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
+        if (user == null) return ApiResponses.unauthorized();
+
+        try {
+            boolean isAdmin = "ADMIN".equals(user.getRole());
+            Path filePath = vacationService.resolveAttachmentPath(requestId, user.getId(), isAdmin);
+
+            if (!Files.exists(filePath)) {
+                return ApiResponses.error(HttpStatus.NOT_FOUND, "ファイルが見つかりません。");
+            }
+
+            Resource resource = new PathResource(filePath);
+            String contentType = Files.probeContentType(filePath);
+            if (contentType == null) contentType = MediaType.APPLICATION_OCTET_STREAM_VALUE;
+
+            String encodedName = URLEncoder.encode(filePath.getFileName().toString(), StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.parseMediaType(contentType))
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            ContentDisposition.attachment().filename(encodedName).build().toString())
+                    .body(resource);
+
+        } catch (IllegalArgumentException e) {
+            return ApiResponses.badRequest(e.getMessage());
+        } catch (IOException e) {
+            return ApiResponses.error(HttpStatus.INTERNAL_SERVER_ERROR, "ファイルの読み込みに失敗しました。");
+        }
+    }
+
     @GetMapping("/balance")
     public ResponseEntity<?> myBalance(HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
-        LeaveBalanceResponse bal = leaveBalanceService.forEmployee(user.getId(), java.time.LocalDate.now());
-        return ResponseEntity.ok(bal);
+        return ResponseEntity.ok(leaveBalanceService.forEmployee(user.getId(), java.time.LocalDate.now()));
     }
 
-    /** 年休残数（管理者: employeeId 指定） */
     @GetMapping("/balance/admin")
-    public ResponseEntity<?> balanceForEmployee(@RequestParam("employeeId") Long employeeId, HttpSession session) {
+    public ResponseEntity<?> balanceForEmployee(
+            @RequestParam("employeeId") Long employeeId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         if (!"ADMIN".equals(user.getRole())) {
             return ApiResponses.error(HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
         }
-        LeaveBalanceResponse bal = leaveBalanceService.forEmployee(employeeId, java.time.LocalDate.now());
-        return ResponseEntity.ok(bal);
+        return ResponseEntity.ok(leaveBalanceService.forEmployee(employeeId, java.time.LocalDate.now()));
     }
 
-    /** 申請取消（申請中のみ） */
     @DeleteMapping("/{requestId}")
-    public ResponseEntity<?> cancel(@PathVariable("requestId") Long requestId, HttpSession session) {
+    public ResponseEntity<?> cancel(
+            @PathVariable("requestId") Long requestId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         try {
@@ -80,9 +147,9 @@ public class VacationController {
 
     // ── 管理者向け ──────────────────────────────────────────────
 
-    /** 申請削除（管理者） */
     @DeleteMapping("/{requestId}/admin")
-    public ResponseEntity<?> adminDelete(@PathVariable("requestId") Long requestId, HttpSession session) {
+    public ResponseEntity<?> adminDelete(
+            @PathVariable("requestId") Long requestId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         try {
@@ -93,7 +160,6 @@ public class VacationController {
         }
     }
 
-    /** 全申請一覧（?status=PENDING など） */
     @GetMapping
     public ResponseEntity<?> allRequests(
             @RequestParam(value = "status", required = false) String status,
@@ -110,9 +176,9 @@ public class VacationController {
         }
     }
 
-    /** 承認 */
     @PutMapping("/{requestId}/approve")
-    public ResponseEntity<?> approve(@PathVariable("requestId") Long requestId, HttpSession session) {
+    public ResponseEntity<?> approve(
+            @PathVariable("requestId") Long requestId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
         try {
@@ -122,7 +188,6 @@ public class VacationController {
         }
     }
 
-    /** 却下 */
     @PutMapping("/{requestId}/reject")
     public ResponseEntity<?> reject(
             @PathVariable("requestId") Long requestId,

@@ -34,6 +34,8 @@ dependencies {
     implementation 'org.apache.poi:poi-ooxml:5.2.5'
     // PDF (OpenPDF) for monthly reporting
     implementation 'com.github.librepdf:openpdf:1.3.39'
+    // TOTP 2FA (Google Authenticator / Microsoft Authenticator compatible)
+    implementation 'com.warrenstrange:googleauth:1.5.0'
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'com.mysql:mysql-connector-j'
     annotationProcessor 'org.projectlombok:lombok'
