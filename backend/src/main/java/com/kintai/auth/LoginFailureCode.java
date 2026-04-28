@@ -8,5 +8,6 @@ public enum LoginFailureCode {
     UNKNOWN_LOGIN_ID,
     ACCOUNT_INACTIVE,
     BAD_PASSWORD,
-    ROLE_MISMATCH
+    ROLE_MISMATCH,
+    INVALID_TOTP
 }

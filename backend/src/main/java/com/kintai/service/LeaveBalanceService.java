@@ -191,7 +191,7 @@ public class LeaveBalanceService {
         LocalDate oldestGrantDate = activeGrants(hire, today).stream()
                 .findFirst()
                 .map(GrantRecord::grantDate)
-                .orElse(firstGrantDate);
+                .orElse(hire);
         BigDecimal used = sumUsedDays(employeeId, oldestGrantDate);
         return LeaveBalanceResponse.builder()
                 .employeeId(employeeId)

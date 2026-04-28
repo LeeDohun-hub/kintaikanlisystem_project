@@ -69,6 +69,12 @@ public class WorkTimeService {
         persisted.setOutingStartTime(req.getOutingStartTime());
         persisted.setOutingEndTime(req.getOutingEndTime());
 
+        // work_minutes は NOT NULL のため初回 flush 前に仮算出（work_id 未取得時はリクエスト単一区間のみ）
+        int outingBeforeFlush = persisted.getWorkId() == null
+                ? outingMinutesFromSingleInterval(req.getOutingStartTime(), req.getOutingEndTime())
+                : totalOutingMinutes(persisted);
+        persisted.setWorkMinutes(computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingBeforeFlush));
+
         workTimeRepository.saveAndFlush(persisted);
 
         // 外出区間（開始・終了が揃っている場合のみ）を追加
@@ -352,6 +358,13 @@ public class WorkTimeService {
         // 1日1件方針のため、累計は月初〜当該日までの合計で足ります。
         long sum = workTimeRepository.sumWorkMinutes(employeeId, from, workDate);
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0, sum));
+    }
+
+    private static int outingMinutesFromSingleInterval(LocalTime outingStart, LocalTime outingEnd) {
+        if (outingStart != null && outingEnd != null && outingEnd.isAfter(outingStart)) {
+            return (int) Duration.between(outingStart, outingEnd).toMinutes();
+        }
+        return 0;
     }
 
     private static int computeWorkMinutes(

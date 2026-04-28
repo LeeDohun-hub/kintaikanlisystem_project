@@ -18,6 +18,22 @@ export function AuthProvider({ children }) {
 
   const login = async ({ loginId, password, role }) => {
     const res = await api.post("/auth/login", { loginId, password, role });
+    // requireTotp or requireTotpSetup: caller handles the multi-step flow
+    if (res.data.requireTotp || res.data.requireTotpSetup) {
+      return res.data;
+    }
+    setUser(res.data);
+    return res.data;
+  };
+
+  const verifyTotp = async (totpCode) => {
+    const res = await api.post("/auth/totp/verify", { totpCode });
+    setUser(res.data);
+    return res.data;
+  };
+
+  const enrollTotp = async (totpCode, setupToken) => {
+    const res = await api.post("/auth/totp/enroll", { totpCode, setupToken });
     setUser(res.data);
     return res.data;
   };
@@ -33,7 +49,7 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading, changeStatus }}>
+    <AuthContext.Provider value={{ user, login, verifyTotp, enrollTotp, logout, loading, changeStatus }}>
       {children}
     </AuthContext.Provider>
   );

@@ -2,6 +2,7 @@ package com.kintai.service;
 
 import com.kintai.auth.LoginFailureCode;
 import com.kintai.auth.LoginRejectedException;
+import com.kintai.auth.LoginValidationResult;
 import com.kintai.dto.LoginRequest;
 import com.kintai.dto.LoginResponse;
 import com.kintai.entity.Employee;
@@ -20,7 +21,7 @@ public class AuthService {
     private final BCryptPasswordEncoder passwordEncoder;
 
     @Transactional(readOnly = true)
-    public LoginResponse login(LoginRequest request) {
+    public LoginValidationResult login(LoginRequest request) {
         String loginId = request.getLoginId() != null ? request.getLoginId().trim() : "";
         if (loginId.isEmpty()) {
             throw new LoginRejectedException(LoginFailureCode.BLANK_LOGIN_ID, null);
@@ -45,12 +46,20 @@ public class AuthService {
             }
         }
 
-        return LoginResponse.builder()
+        LoginResponse userResponse = LoginResponse.builder()
                 .id(employee.getEmployeeId())
                 .employeeCode(employee.getEmployeeCode())
                 .name(employee.getEmployeeName())
                 .role(account.getRole().name())
                 .status(account.getCurrentStatus() != null ? account.getCurrentStatus().name() : "PRESENT")
                 .build();
+
+        boolean totpEnabled = account.isTotpEnabled();
+        return new LoginValidationResult(
+                userResponse,
+                totpEnabled,          // totpRequired: 設定済み → コード入力が必要
+                account.getTotpSecret(),
+                !totpEnabled          // totpSetupRequired: 未設定 → セットアップが必要
+        );
     }
 }

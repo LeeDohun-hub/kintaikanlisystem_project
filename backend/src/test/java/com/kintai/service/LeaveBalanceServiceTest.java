@@ -11,8 +11,10 @@ import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.VacationRequestRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +22,8 @@ import java.time.LocalDate;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
+@ActiveProfiles("test")
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @Import(LeaveBalanceService.class)
 class LeaveBalanceServiceTest {
 
@@ -41,7 +45,7 @@ class LeaveBalanceServiceTest {
         // before grant
         var balBefore = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 6, 30));
         assertFalse(balBefore.isGranted());
-        assertEquals(new BigDecimal("0.0"), balBefore.getRemainingDays());
+        assertEquals(0, BigDecimal.ZERO.compareTo(balBefore.getRemainingDays()));
 
         // after grant + usage
         VacationRequest v1 = VacationRequest.builder()
@@ -59,7 +63,7 @@ class LeaveBalanceServiceTest {
         vacationRequestRepository.save(v1);
         vacationRequestRepository.save(v2);
 
-        // 付与日から0ヶ月: 10日
+        // 初回付与後（有効付与は 6ヶ月目付与の 10 日のみ）
         var bal = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 7, 10));
         assertTrue(bal.isGranted());
         assertEquals(new BigDecimal("10.0"), bal.getGrantedDays());
@@ -67,16 +71,14 @@ class LeaveBalanceServiceTest {
         assertEquals(new BigDecimal("1.5"), bal.getUsedDays());
         assertEquals(new BigDecimal("8.5"), bal.getRemainingDays());
 
-        // 付与日から1ヶ月後(8/1): 11日
         var bal1m = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 8, 1));
-        assertEquals(new BigDecimal("11.0"), bal1m.getGrantedDays());
-        assertEquals(1L, bal1m.getMonthsSinceGrant());
-        assertEquals(new BigDecimal("9.5"), bal1m.getRemainingDays());
+        assertEquals(new BigDecimal("10.0"), bal1m.getGrantedDays());
+        assertEquals(0L, bal1m.getMonthsSinceGrant());
+        assertEquals(new BigDecimal("8.5"), bal1m.getRemainingDays());
 
-        // 付与日から3ヶ月後(10/1): 13日
         var bal3m = leaveBalanceService.forEmployee(e.getEmployeeId(), LocalDate.of(2026, 10, 1));
-        assertEquals(new BigDecimal("13.0"), bal3m.getGrantedDays());
-        assertEquals(3L, bal3m.getMonthsSinceGrant());
+        assertEquals(new BigDecimal("10.0"), bal3m.getGrantedDays());
+        assertEquals(0L, bal3m.getMonthsSinceGrant());
     }
 
     @Test

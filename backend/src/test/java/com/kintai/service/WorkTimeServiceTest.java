@@ -3,6 +3,7 @@ package com.kintai.service;
 import com.kintai.dto.WorkTimeCreateRequest;
 import com.kintai.entity.Employee;
 import com.kintai.repository.EmployeeRepository;
+import com.kintai.repository.WorkTimeRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,8 +27,11 @@ class WorkTimeServiceTest {
     @Autowired
     EmployeeRepository employeeRepository;
 
+    @Autowired
+    WorkTimeRepository workTimeRepository;
+
     @Test
-    void create_rejectsDuplicateWorkDateForSameEmployee() {
+    void create_overwritesSameWorkDateForSameEmployee() {
         Employee emp = employeeRepository.save(Employee.builder()
                 .employeeCode("EMP_T1")
                 .employeeName("Test")
@@ -51,13 +55,20 @@ class WorkTimeServiceTest {
         req2.setBreakMinutes(30);
         req2.setRemarks("dup");
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> workTimeService.create(emp.getEmployeeId(), req2));
-        assertTrue(ex.getMessage().contains("同一勤務日"));
+        assertDoesNotThrow(() -> workTimeService.create(emp.getEmployeeId(), req2));
+
+        var rows = workTimeRepository.findAll().stream()
+                .filter(w -> w.getEmployeeId().equals(emp.getEmployeeId()) && w.getWorkDate().equals(LocalDate.of(2026, 4, 9)))
+                .toList();
+        assertEquals(1, rows.size());
+        assertEquals(LocalTime.of(10, 0), rows.get(0).getStartTime());
+        assertEquals(LocalTime.of(19, 0), rows.get(0).getEndTime());
+        assertEquals(30, rows.get(0).getBreakMinutes());
+        assertEquals("dup", rows.get(0).getRemarks());
     }
 
     @Test
-    void create_rejectsOutingLongerThan2hUnlessEndMatchesWorkEnd() {
+    void create_acceptsLongOutingWithinWorkWindow_andShortDayWithOutingToWorkEnd() {
         Employee emp = employeeRepository.save(Employee.builder()
                 .employeeCode("EMP_OUT")
                 .employeeName("Outing")
@@ -65,17 +76,15 @@ class WorkTimeServiceTest {
                 .activeFlag(1)
                 .build());
 
-        WorkTimeCreateRequest bad = new WorkTimeCreateRequest();
-        bad.setWorkDate(LocalDate.of(2026, 5, 1));
-        bad.setStartTime(LocalTime.of(9, 0));
-        bad.setEndTime(LocalTime.of(18, 0));
-        bad.setBreakMinutes(60);
-        bad.setOutingStartTime(LocalTime.of(10, 0));
-        bad.setOutingEndTime(LocalTime.of(13, 30)); // 210 min
+        WorkTimeCreateRequest longOuting = new WorkTimeCreateRequest();
+        longOuting.setWorkDate(LocalDate.of(2026, 5, 1));
+        longOuting.setStartTime(LocalTime.of(9, 0));
+        longOuting.setEndTime(LocalTime.of(18, 0));
+        longOuting.setBreakMinutes(60);
+        longOuting.setOutingStartTime(LocalTime.of(10, 0));
+        longOuting.setOutingEndTime(LocalTime.of(13, 30)); // 210 min within 9–18
 
-        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
-                () -> workTimeService.create(emp.getEmployeeId(), bad));
-        assertTrue(ex.getMessage().contains("2時間"));
+        assertDoesNotThrow(() -> workTimeService.create(emp.getEmployeeId(), longOuting));
 
         WorkTimeCreateRequest ok = new WorkTimeCreateRequest();
         ok.setWorkDate(LocalDate.of(2026, 5, 2));

@@ -35,7 +35,12 @@
       "Bash(npx tsc *)",
       "Bash(npm run *)",
       "Bash(mvn compile *)",
-      "PowerShell(Get-Command *)"
+      "PowerShell(Get-Command *)",
+      "Bash(npm install *)",
+      "Bash(npm list *)",
+      "Bash(./gradlew dependencies *)",
+      "Bash(Get-Date *)",
+      "Bash(curl -s \"http://worldtimeapi.org/api/timezone/Asia/Seoul\")"
     ]
   }
 }

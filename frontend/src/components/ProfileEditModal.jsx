@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import api from "../api/api";
+import TotpSection from "./TotpSection";
 
 const GENDER_OPTIONS = [
   { value: "", label: "未選択" },
@@ -316,6 +317,11 @@ export default function ProfileEditModal({ open, onClose, onPhotoUpdated, employ
                   </button>
                 </div>
               </form>
+            </section>
+
+            <section className="profile-modal-section">
+              <h4 className="profile-modal-section-title">2段階認証 (2FA)</h4>
+              <TotpSection />
             </section>
           </>
         )}

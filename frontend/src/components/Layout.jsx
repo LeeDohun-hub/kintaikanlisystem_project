@@ -87,13 +87,24 @@ const STATUS_OPTIONS = [
   { value: "OUTING", label: "外出" },
 ];
 
+function blurFocusInsideNavDropdown(root) {
+  const ae = document.activeElement;
+  if (ae && typeof ae.blur === "function" && root.contains(ae)) {
+    ae.blur();
+  }
+}
+
 function NavBoardDropdown({ panelClass, icon, label }) {
   const [searchParams] = useSearchParams();
   // URL に category がないときは何も選択しない（デフォルト選択なし）
   const currentCat = searchParams.get("category");
 
   return (
-    <div className="nav-board-dropdown-wrap" tabIndex={0}>
+    <div
+      className="nav-board-dropdown-wrap"
+      tabIndex={0}
+      onMouseLeave={(e) => blurFocusInsideNavDropdown(e.currentTarget)}
+    >
       <NavLink to="/board" className={panelClass} end={false}>
         <span className="panel-nav-icon" aria-hidden="true">
           {icon}
@@ -138,7 +149,11 @@ function NavVacationDropdown({ panelClass, icon, label }) {
   const currentCat = isVacationPage ? searchParams.get("category") : null;
 
   return (
-    <div className="nav-board-dropdown-wrap" tabIndex={0}>
+    <div
+      className="nav-board-dropdown-wrap"
+      tabIndex={0}
+      onMouseLeave={(e) => blurFocusInsideNavDropdown(e.currentTarget)}
+    >
       <NavLink to="/vacation" className={panelClass}>
         <span className="panel-nav-icon" aria-hidden="true">{icon}</span>
         <span className="panel-nav-label">{label}</span>

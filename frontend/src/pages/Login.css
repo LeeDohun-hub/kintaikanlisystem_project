@@ -577,3 +577,75 @@
   font-size: 14px;
   text-align: left;
 }
+
+.totp-input {
+  text-align: center;
+  font-size: 28px;
+  letter-spacing: 12px;
+  font-weight: 700;
+  width: 100%;
+}
+
+/* ── 初回 2FA セットアップ画面 ── */
+.login-setup-steps {
+  margin: 4px 0 12px;
+}
+
+.login-setup-step-label {
+  font-size: 13px;
+  color: #444;
+  line-height: 1.6;
+  margin: 0 0 10px;
+}
+
+.login-setup-qr-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 10px 0;
+}
+
+.login-setup-qr-img {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px;
+  background: #fff;
+}
+
+.login-setup-qr-placeholder {
+  width: 260px;
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border-radius: 8px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.login-setup-manual {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 4px;
+}
+
+.login-setup-manual-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 0 0 6px;
+}
+
+.login-setup-secret {
+  display: block;
+  font-family: monospace;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #1f2937;
+  background: #f3f4f6;
+  padding: 6px 10px;
+  border-radius: 4px;
+  word-break: break-all;
+  user-select: all;
+}

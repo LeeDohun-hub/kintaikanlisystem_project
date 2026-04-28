@@ -35,4 +35,11 @@ public class EmployeeAccount {
     @Enumerated(EnumType.STRING)
     @Column(name = "current_status", nullable = false, length = 20)
     private EmployeeStatus currentStatus = EmployeeStatus.PRESENT;
+
+    @Column(name = "totp_secret", length = 100)
+    private String totpSecret;
+
+    @Builder.Default
+    @Column(name = "totp_enabled", nullable = false)
+    private boolean totpEnabled = false;
 }
