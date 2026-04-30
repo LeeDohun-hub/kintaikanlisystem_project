@@ -2,7 +2,7 @@
 
 - **한국어요건정의서:** [README_kr.md](README_kr.md)
 - **日本語要件定義書:** [README_jp.md](README_jp.md)
-- **시스템 설계도** [system-design-overview.md](docs/system-design-overview.md)
+- **시스템 설계도** [system-design-overview.md](docs/system-design-overview_jp.md)
 - **기본설계서:** [基本設計書.md](docs/基本設計書.md)
 - **상세설계서** [詳細設計書.md](docs/詳細設計書.md)
 - **ER図** [ER図] 
