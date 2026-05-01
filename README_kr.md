@@ -153,7 +153,7 @@ Set-Location frontend; npm test
 | `backend/` | Spring Boot API |
 | `frontend/` | React SPA |
 | `sql/schema.sql` | 수동 적용용 DDL·시드 예시 |
-| `docs/` | 설계·디버그 메모 등 |
+| `docs/` | 설계·디버그 메모 등（**요건/기본/상세/시스템 개요 역할:** `docs/설계문서_역할_구분.md`） |
 
 ---
 

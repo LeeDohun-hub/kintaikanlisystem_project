@@ -234,7 +234,7 @@ Set-Location frontend; npm test
 | `backend/` | Spring Boot API |
 | `frontend/` | React SPA |
 | `sql/schema.sql` | 手動適用用 DDL・シード例 |
-| `docs/` | 設計・デバッグメモなど |
+| `docs/` | 設計・デバッグメモなど（**要件/基本/詳細/システム概要の役割分担:** `docs/설계문서_역할_구분.md`） |
 
 ---
 
