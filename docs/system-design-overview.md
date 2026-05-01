@@ -1,10 +1,24 @@
 # kintai（근태 관리 시스템）— 시스템 설계 개요
 
 **문서 목적**: 대표·내부 검토용으로 **구성·인증 개념·역할**을 **한 파일·짧은 시간**에 파악할 수 있게 합니다.  
-**守備範囲（역할）**: 상세 API 정의·테이블 컬럼 정의는 **쓰지 않음**（`基本設計書.md` / `詳細設計書.md` / `データ_設計.md`로 안내）。본 문서의 API·데이터 절은 회의용 **목차 수준**으로 둡니다.  
+**守備範囲（역할）**: 상세 API 정의·테이블 컬럼 정의는 **쓰지 않음**（`基本設計書.md` / `詳細設計書.md` / `データ_設計.md`로 안내）. 본 문서의 API·데이터 절은 회의용 **목차 수준**으로 둡니다.  
 **갱신**: 코드/요구가 바뀌면 본 문서를 함께 수정하는 것을 권장합니다.  
 **다이어그램**: [Mermaid](https://mermaid.js.org/) 문법입니다. GitHub·Notion·VS Code 미리보기 등에서 렌더링됩니다.  
 **문서 간 역할**: `docs/설계문서_역할_구분.md`
+
+---
+
+## 목차
+
+1. [프로젝트 한 줄 요약](#1-프로젝트-한-줄-요약)
+2. [시스템 구성도](#2-시스템-구성도)
+3. [인증·권한 흐름](#3-인증권한-흐름개념)
+4. [역할별 기능 매트릭스](#4-역할별-기능-매트릭스)
+5. [주요 화면 요약](#5-주요-화면라우트-요약)
+6. [API 그룹](#6-api-그룹대표)
+7. [데이터 개요](#7-데이터-개요er-개념)
+8. [비기능·운영](#8-비기능운영-요약)
+9. [관련 문서·경로](#9-관련-문서경로)
 
 ---
 
@@ -105,12 +119,12 @@ sequenceDiagram
 | 영역 | Base path | 비고 |
 |------|------------|------|
 | 인증 | `/api/auth` | login, logout, me |
-| 근태 | `/api/worktime` | 월 조회, CRUD, bulk, Excel取込（관리）, 월간レ포트送信 |
+| 근태 | `/api/worktime` | 월 조회, CRUD, bulk, Excel取込（관리）, 월간레포트送信 |
 | 직원·사진 | `/api/employees` | 마스터 CRUD, 사진 업로드/조회 |
 | 게시판 | `/api/board` | 글·댓글 |
-| 메신저 | `/api/messenger` | 대화 목록, 메시지, 전송, 미읽음, **대화 나가기**（POST `.../conversation/{id}/delete` 등） |
+| 메신저 | `/api/messenger` | 대화 목록, 메시지, 전송, 미읽음, 대화 나가기 |
 | 휴가 | `/api/vacations` | my, 신청, 취소, 관리자 목록·승인·거절 |
-| 기타 | `/api/attendance`, `/api/reports`, `/api/statistics`, … | README 및 컨트롤러 참조 |
+| 기타 | `/api/attendance`, `/api/reports`, `/api/statistics` | README 및 컨트롤러 참조 |
 
 ---
 
@@ -139,21 +153,21 @@ erDiagram
 | `work_time` | 일별 근무 기록 |
 | `vacation_request` | 휴가 신청·승인 상태 |
 | `board_post` / `board_comment` | 게시판 |
-| `message` | 1:1 메신저（`system_type` 등 확장 가능） |
+| `message` | 1:1 메신저 |
 | `conversation_leave` | 대화 목록에서 숨김（나가기） |
 | `login_attempt` | 로그인 성공/실패 감사 |
-| `batch_import_history` | 일괄 가져오기 이력（해당 시） |
+| `batch_import_history` | 일괄 가져오기 이력 |
 
 ---
 
-## 8. 비기능·운영（요약）
+## 8. 비기능·운영 요약
 
 | 항목 | 내용 |
 |------|------|
 | CI | `.github/workflows/tests.yml` — Gradle `test`, `npm test` |
 | 프로파일 | `dev` / `prod`（`application-*.properties`） |
-| CORS | 개발: localhost:5173 等（`WebConfig`） |
-| 보안 | 비밀번호 해시, 세션, 관리 API 이중 검증（인터셉터 + 서비스）— 세부는 코드 리뷰 시 보완 |
+| CORS | 개발: localhost:5173 등（`WebConfig`） |
+| 보안 | 비밀번호 해시, 세션, 관리 API 이중 검증（인터셉터 + 서비스） |
 
 ---
 
@@ -166,15 +180,6 @@ erDiagram
 | `docs/詳細設計書.md` | API/처리·테스트 관점 상세 |
 | `README_kr.md` / `README_jp.md` | 기능·실행 방법 |
 | `sql/schema.sql` | 수동 DDL 참고 |
-| `docs/` | 본 문서 및 기타 메모 |
-
----
-
-## 10. 다음에 보완하면 좋은 산출물（선택）
-
-- 시퀀스별 **상세 시퀀스 다이어그램**（Excel 가져오기, 휴가 승인 등）
-- **배포도**（Docker / 클라우드 도입 시）
-- **OpenAPI(Swagger)** 자동 문서
 
 ---
 
