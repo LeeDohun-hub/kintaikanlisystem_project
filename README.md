@@ -1,9 +1,18 @@
 # kintai — 勤怠管理 / 근태 관리
 
+<<<<<<< HEAD
 - **한국어:** [README_kr.md](README_kr.md)
 - **日本語:** [README_jp.md](README_jp.md)
 - **시스템 설계:** [system-design-overview.md](system-design-overview.md)
 
+=======
+- **한국어요건정의서:** [README_kr.md](README_kr.md)
+- **日本語要件定義書:** [README_jp.md](README_jp.md)
+- **시스템 설계도** [system-design-overview.md](docs/system-design-overview_jp.md)
+- **기본설계서:** [基本設計書.md](docs/基本設計書.md)
+- **상세설계서** [詳細設計書.md](docs/詳細設計書.md)
+- **ER図** [ER図] 
+>>>>>>> 81f0c5d4c3c75be56bfecb7d77293a56b00931c3
 ## What’s implemented (high level)
 
 - **Auth**: session-based login (`/api/auth/*`), optional **TOTP (2FA)** (`/api/auth/totp/*`), roles `ADMIN` / `EMPLOYEE`
