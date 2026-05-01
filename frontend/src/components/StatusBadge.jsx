@@ -4,7 +4,8 @@ const STATUS_MAP = {
   PRESENT:  { label: "在席",  color: "#16a34a", bg: "#dcfce7" },
   ABSENT:   { label: "退勤",  color: "#6b7280", bg: "#f3f4f6" },
   VACATION: { label: "休暇",  color: "#2563eb", bg: "#dbeafe" },
-  OUTING:   { label: "外出",  color: "#d97706", bg: "#fef3c7" },
+  OUTING:        { label: "外出",  color: "#d97706", bg: "#fef3c7" },
+  BUSINESS_TRIP: { label: "出張",  color: "#7c3aed", bg: "#ede9fe" },
 };
 
 export default function StatusBadge({ status, size = "sm" }) {

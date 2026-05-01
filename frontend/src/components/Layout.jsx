@@ -84,7 +84,8 @@ const STATUS_OPTIONS = [
   { value: "PRESENT", label: "在席" },
   { value: "ABSENT", label: "退勤" },
   { value: "VACATION", label: "休暇" },
-  { value: "OUTING", label: "外出" },
+  { value: "OUTING",        label: "外出" },
+  { value: "BUSINESS_TRIP", label: "出張" },
 ];
 
 function blurFocusInsideNavDropdown(root) {
