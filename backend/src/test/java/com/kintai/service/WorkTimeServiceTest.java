@@ -13,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -95,6 +96,33 @@ class WorkTimeServiceTest {
         ok.setOutingEndTime(LocalTime.of(13, 30));
 
         assertDoesNotThrow(() -> workTimeService.create(emp.getEmployeeId(), ok));
+    }
+
+    @Test
+    void bulkUpsert_insertsNewDayWithNonNullWorkMinutes() {
+        Employee emp = employeeRepository.save(Employee.builder()
+                .employeeCode("EMP_BULK")
+                .employeeName("Bulk")
+                .hourlyCost(BigDecimal.ZERO)
+                .activeFlag(1)
+                .build());
+
+        LocalDate day = LocalDate.of(2026, 6, 10);
+        WorkTimeCreateRequest req = new WorkTimeCreateRequest();
+        req.setWorkDate(day);
+        req.setStartTime(LocalTime.of(9, 0));
+        req.setEndTime(LocalTime.of(18, 0));
+        req.setBreakMinutes(60);
+
+        var resp = workTimeService.bulkUpsert(emp.getEmployeeId(), List.of(req), true);
+        assertEquals(0, resp.getErrorCount());
+        assertEquals(1, resp.getSuccessCount());
+
+        var saved = workTimeRepository
+                .findFirstByEmployeeIdAndWorkDateOrderByWorkIdAsc(emp.getEmployeeId(), day)
+                .orElseThrow();
+        assertNotNull(saved.getWorkMinutes());
+        assertEquals(480, saved.getWorkMinutes());
     }
 }
 

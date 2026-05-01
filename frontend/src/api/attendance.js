@@ -3,9 +3,7 @@ import api from "./api";
 export function importAttendanceExcel(file) {
   const form = new FormData();
   form.append("file", file);
-  return api.post("/attendance/import", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
+  return api.post("/attendance/import", form);
 }
 
 /**
@@ -17,8 +15,5 @@ export function importKintaihyo(fileOrBlob, filename = "kintaihyo.xlsx", employe
   form.append("file", fileOrBlob, filename);
   const params = {};
   if (employeeId != null && employeeId !== "") params.employeeId = employeeId;
-  return api.post("/worktime/import-kintaihyo", form, {
-    headers: { "Content-Type": "multipart/form-data" },
-    params,
-  });
+  return api.post("/worktime/import-kintaihyo", form, { params });
 }

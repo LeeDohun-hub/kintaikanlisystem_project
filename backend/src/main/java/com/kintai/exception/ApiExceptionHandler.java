@@ -6,6 +6,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConversionException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -46,6 +47,15 @@ public class ApiExceptionHandler {
         log.warn("Request body parse error: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                 .body(Map.of("error", "リクエスト本文の形式が正しくありません。日付・時刻形式をご確認ください。"));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<Map<String, String>> handleMediaTypeNotSupported(HttpMediaTypeNotSupportedException ex) {
+        log.warn("Unsupported Content-Type: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(Map.of("error",
+                        "요청의 Content-Type 이 이 API 에서 허용되지 않습니다. "
+                                + "JSON 본문은 application/json, 파일 업로드는 multipart/form-data(브라우저가 boundary 를 붙이도록 Content-Type 을 비워 두세요)를 사용하세요."));
     }
 
     @ExceptionHandler(HttpMessageConversionException.class)

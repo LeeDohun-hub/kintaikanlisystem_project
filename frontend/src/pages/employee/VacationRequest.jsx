@@ -306,9 +306,7 @@ export default function VacationRequest() {
         formData.append("file", attachmentFile);
       }
 
-      await api.post("/vacations", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.post("/vacations", formData);
       setSuccessMsg("休暇申請を送信しました。管理者の承認をお待ちください。");
       setForm((p) => ({ ...p, vacationStartDate: today(), vacationEndDate: today(), reason: "" }));
       setAttachmentFile(null);

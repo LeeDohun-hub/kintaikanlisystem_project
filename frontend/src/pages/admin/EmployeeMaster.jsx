@@ -342,9 +342,7 @@ function EmployeeMaster() {
       try {
         const fd = new FormData();
         fd.append("file", photoFile);
-        await api.post(`/employees/${createdId}/photo`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post(`/employees/${createdId}/photo`, fd);
       } catch {
         // 写真アップロード失敗は警告のみ（登録自体は成功）
         setError("社員は登録しましたが、写真のアップロードに失敗しました。");
@@ -433,9 +431,7 @@ function EmployeeMaster() {
       try {
         const fd = new FormData();
         fd.append("file", photoFile);
-        await api.post(`/employees/${id}/photo`, fd, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        await api.post(`/employees/${id}/photo`, fd);
       } catch {
         setError("社員情報は更新しましたが、写真のアップロードに失敗しました。");
         setUpdateBusy(false);

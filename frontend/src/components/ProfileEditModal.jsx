@@ -114,9 +114,7 @@ export default function ProfileEditModal({ open, onClose, onPhotoUpdated, employ
     try {
       const fd = new FormData();
       fd.append("file", photoFile);
-      await api.post("/employees/me/photo", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      await api.post("/employees/me/photo", fd);
       setPhotoFile(null);
       if (photoInputRef.current) photoInputRef.current.value = "";
       setHasPhoto(true);

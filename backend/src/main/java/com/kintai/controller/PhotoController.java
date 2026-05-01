@@ -45,7 +45,7 @@ public class PhotoController {
 
     /** 管理者が社員の写真をアップロードする */
     @AdminOnly
-    @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/{id}/photo")
     public ResponseEntity<?> uploadPhoto(
             @PathVariable("id") long id,
             @RequestParam("file") MultipartFile file,
@@ -57,7 +57,7 @@ public class PhotoController {
     }
 
     /** ログイン中のユーザーが自分の写真をアップロードする（管理者不要） */
-    @PostMapping(value = "/me/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping("/me/photo")
     public ResponseEntity<?> uploadMyPhoto(
             @RequestParam("file") MultipartFile file,
             HttpSession session) {

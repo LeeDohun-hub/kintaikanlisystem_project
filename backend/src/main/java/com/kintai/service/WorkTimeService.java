@@ -179,6 +179,9 @@ public class WorkTimeService {
                     w.setWorkMinutes(computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingMinutesForCompute));
                     updated++;
                 } else {
+                    // work_minutes は NOT NULL のため初回 INSERT 前に仮算出（create() と同様、work_id 未取得時は単一区間のみ控除）
+                    int outingBeforeFlush = outingMinutesFromSingleInterval(req.getOutingStartTime(), req.getOutingEndTime());
+                    int initialWorkMins = computeWorkMinutes(req.getStartTime(), req.getEndTime(), breakMins, outingBeforeFlush);
                     WorkTime newEntity = WorkTime.builder()
                             .employeeId(userId)
                             .workDate(req.getWorkDate())
@@ -188,6 +191,7 @@ public class WorkTimeService {
                             .outingStartTime(req.getOutingStartTime())
                             .outingEndTime(req.getOutingEndTime())
                             .breakMinutes(breakMins)
+                            .workMinutes(initialWorkMins)
                             .remarks(remarks)
                             .build();
                     // insert は flush 後に work_id が必要（外出区間 FK）

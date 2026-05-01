@@ -3,7 +3,6 @@ package com.kintai.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kintai.auth.AdminOnly;
 import com.kintai.dto.LoginResponse;
-import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.dto.VacationRejectRequest;
 import com.kintai.dto.VacationSubmitRequest;
 import com.kintai.service.LeaveBalanceService;
@@ -46,15 +45,10 @@ public class VacationController {
         return ResponseEntity.ok(vacationService.getMyRequests(user.getId()));
     }
 
-    /**
-     * 休暇申請（multipart/form-data）
-     * - request パート: VacationSubmitRequest の JSON 文字列
-     * - file パート   : 添付書類（任意、PDF / 画像）
-     */
-    @PostMapping(consumes = {MediaType.MULTIPART_FORM_DATA_VALUE, MediaType.APPLICATION_JSON_VALUE})
+    /** 休暇申請: multipart/form-data で request パート（JSON 文字列）＋任意 file パート */
+    @PostMapping(consumes = "multipart/form-data")
     public ResponseEntity<?> submit(
-            @RequestPart(value = "request", required = false) String requestJson,
-            @RequestBody(required = false) VacationSubmitRequest bodyReq,
+            @RequestPart(value = "request") String requestJson,
             @RequestPart(value = "file", required = false) MultipartFile file,
             HttpSession session) {
 
@@ -62,14 +56,7 @@ public class VacationController {
         if (user == null) return ApiResponses.unauthorized();
 
         try {
-            VacationSubmitRequest req;
-            if (requestJson != null) {
-                req = objectMapper.readValue(requestJson, VacationSubmitRequest.class);
-            } else if (bodyReq != null) {
-                req = bodyReq;
-            } else {
-                return ApiResponses.badRequest("リクエストデータが不正です。");
-            }
+            VacationSubmitRequest req = objectMapper.readValue(requestJson, VacationSubmitRequest.class);
             return ResponseEntity.ok(vacationService.submit(user, req, file));
         } catch (IllegalArgumentException e) {
             return ApiResponses.badRequest(e.getMessage());
