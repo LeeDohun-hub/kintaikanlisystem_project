@@ -7,6 +7,7 @@ import com.kintai.entity.WorkTime;
 import com.kintai.repository.BatchImportHistoryRepository;
 import com.kintai.repository.EmployeeRepository;
 import com.kintai.repository.WorkTimeRepository;
+import com.kintai.service.importer.AdminAttendanceExcelRowParser;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.EncryptedDocumentException;
 import org.apache.poi.ss.usermodel.*;
@@ -58,6 +59,7 @@ public class AttendanceImportService {
     private final EmployeeRepository employeeRepository;
     private final WorkTimeRepository workTimeRepository;
     private final BatchImportHistoryRepository batchImportHistoryRepository;
+    private final AdminAttendanceExcelRowParser adminAttendanceExcelRowParser;
 
     /**
      * 713 詳細設計に準拠:
@@ -99,7 +101,7 @@ public class AttendanceImportService {
                 if (row == null) continue;
 
                 try {
-                    ParsedRow parsed = parseRow(row);
+                    AdminAttendanceExcelRowParser.ParsedRow parsed = adminAttendanceExcelRowParser.parseRow(row);
 
                     // 同一社員は同一勤務日1件のみ（時刻不問）：ファイル内＋DB 重複をブロック
                     String key = parsed.employeeId() + "|" + parsed.workDate();
@@ -186,52 +188,16 @@ public class AttendanceImportService {
                 .build();
     }
 
-    private record ParsedRow(Long employeeId, LocalDate workDate, LocalTime start, LocalTime end, int breakMinutes, String remarks) {}
-
-
-    private ParsedRow parseRow(Row row) {
-        Long employeeId = resolveEmployeeId(readCellString(row, 0));
-        if (employeeId == null) {
-            throw new IllegalArgumentException("A列の社員IDが空か、登録されていない社員です。");
-        }
-        LocalDate workDate = readCellDate(row, 1);
-        LocalTime start = readCellTime(row, 2);
-        LocalTime end = readCellTime(row, 3);
-        int breakMinutes = readBreakMinutes(row, 4);
-        String remarks = truncateRemarks(readCellString(row, 5));
-
-        if (workDate == null || start == null || end == null) {
-            throw new IllegalArgumentException("B列の日付またはC/D列の時刻形式をご確認ください。（日付: YYYY-MM-DD または Excel 日付、時刻: HH:mm）");
-        }
-        if (!start.isBefore(end)) {
-            throw new IllegalArgumentException("開始時刻は終了時刻より前である必要があります。");
-        }
-        if (breakMinutes < 0 || breakMinutes > 24 * 60) {
-            throw new IllegalArgumentException("E列の休憩（分）は0以上1440以下である必要があります。");
-        }
-        return new ParsedRow(employeeId, workDate, start, end, breakMinutes, remarks);
-    }
-
     private static int computeWorkMinutes(LocalTime start, LocalTime end, int breakMinutes) {
         int startM = start.getHour() * 60 + start.getMinute();
         int endM = end.getHour() * 60 + end.getMinute();
         return Math.max(0, endM - startM - breakMinutes);
     }
 
-    private Long resolveEmployeeId(String raw) {
-        if (raw == null) return null;
-        String v = raw.trim();
-        if (v.isBlank()) return null;
-        // numeric -> employee_id
-        if (v.matches("^\\d+$")) {
-            long id = Long.parseLong(v);
-            return employeeRepository.existsById(id) ? id : null;
-        }
-        // otherwise treat as employee_code
-        Employee emp = employeeRepository.findByEmployeeCode(v).orElse(null);
-        return emp != null ? emp.getEmployeeId() : null;
-    }
-
+    /**
+     * Excel セルを文字列として読み取る（数値/boolean/数式のキャッシュ結果も許容）。
+     * 管理者用アップロード、勤務表取り込み、CSVヘッダ推定など複数箇所で共通利用する。
+     */
     private static String readCellString(Row row, int idx) {
         Cell c = row.getCell(idx);
         if (c == null) return null;
@@ -257,117 +223,11 @@ public class AttendanceImportService {
         };
     }
 
-    private static int readBreakMinutes(Row row, int idx) {
-        Cell c = row.getCell(idx);
-        if (c == null) {
-            return 0;
-        }
-        try {
-            return switch (c.getCellType()) {
-                case NUMERIC -> {
-                    if (DateUtil.isCellDateFormatted(c)) {
-                        LocalTime t = c.getLocalDateTimeCellValue().toLocalTime();
-                        yield t.getHour() * 60 + t.getMinute();
-                    }
-                    double v = c.getNumericCellValue();
-                    if (v > 0 && v < 1.0) {
-                        int totalSeconds = (int) Math.round(v * 24 * 60 * 60);
-                        yield totalSeconds / 60;
-                    }
-                    yield (int) Math.round(v);
-                }
-                case STRING -> parseBreakMinutesString(c.getStringCellValue().trim());
-                case FORMULA -> {
-                    CellType rt = c.getCachedFormulaResultType();
-                    if (rt == CellType.NUMERIC) {
-                        if (DateUtil.isCellDateFormatted(c)) {
-                            LocalTime t = c.getLocalDateTimeCellValue().toLocalTime();
-                            yield t.getHour() * 60 + t.getMinute();
-                        }
-                        yield (int) Math.round(c.getNumericCellValue());
-                    }
-                    if (rt == CellType.STRING) {
-                        yield parseBreakMinutesString(c.getStringCellValue().trim());
-                    }
-                    yield 0;
-                }
-                default -> 0;
-            };
-        } catch (RuntimeException ex) {
-            return 0;
-        }
-    }
-
-    private static int parseBreakMinutesString(String s) {
-        if (s == null || s.isBlank()) {
-            return 0;
-        }
-        if (s.matches("^\\d+:\\d{2}$")) {
-            String[] p = s.split(":");
-            int h = Integer.parseInt(p[0]);
-            int m = Integer.parseInt(p[1]);
-            return h * 60 + m;
-        }
-        return Integer.parseInt(s.trim());
-    }
-
     private static String truncateRemarks(String raw) {
-        if (raw == null) {
-            return null;
-        }
+        if (raw == null) return null;
         String t = raw.trim();
-        if (t.isEmpty()) {
-            return null;
-        }
+        if (t.isEmpty()) return null;
         return t.length() > 500 ? t.substring(0, 500) : t;
-    }
-
-    private static LocalDate readCellDate(Row row, int idx) {
-        Cell c = row.getCell(idx);
-        if (c == null) return null;
-        if (c.getCellType() == CellType.NUMERIC && DateUtil.isCellDateFormatted(c)) {
-            return c.getLocalDateTimeCellValue().toLocalDate();
-        }
-        if (c.getCellType() == CellType.STRING) {
-            String s = c.getStringCellValue().trim();
-            if (s.isBlank()) return null;
-            try {
-                return LocalDate.parse(s, DateTimeFormatter.ISO_LOCAL_DATE);
-            } catch (DateTimeParseException ex) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private static LocalTime readCellTime(Row row, int idx) {
-        Cell c = row.getCell(idx);
-        if (c == null) return null;
-        if (c.getCellType() == CellType.NUMERIC) {
-            // Excel time as fraction of a day
-            if (DateUtil.isCellDateFormatted(c)) {
-                return c.getLocalDateTimeCellValue().toLocalTime().withSecond(0).withNano(0);
-            }
-            double v = c.getNumericCellValue();
-            if (v >= 0 && v < 1) {
-                int totalSeconds = (int) Math.round(v * 24 * 60 * 60);
-                int hh = totalSeconds / 3600;
-                int mm = (totalSeconds % 3600) / 60;
-                return LocalTime.of(Math.min(23, hh), Math.min(59, mm));
-            }
-        }
-        if (c.getCellType() == CellType.STRING) {
-            String s = c.getStringCellValue().trim();
-            if (s.isBlank()) return null;
-            // allow HH:mm or HH:mm:ss
-            try {
-                if (s.length() == 5) return LocalTime.parse(s, DateTimeFormatter.ofPattern("HH:mm"));
-                return LocalTime.parse(s);
-            } catch (DateTimeParseException ex) {
-                return null;
-            }
-        }
-        return null;
     }
 
     /**

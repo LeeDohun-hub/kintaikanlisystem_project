@@ -9,6 +9,7 @@ Java / Spring Boot 백엔드와 React（Vite）프론트로 구성된 근태 관
 ### 권한/인증
 
 - **세션 기반 로그인**: 로그인 성공 시 세션에 사용자 정보 저장
+- **TOTP(2FA)**: 계정에 TOTP를 켜면 로그인 후 코드 검증 단계가 있습니다. (`/api/auth/totp/*`)
 - **역할(Role)**: `ADMIN` / `EMPLOYEE`
   - `ADMIN`: 관리자 메뉴/기능 접근
   - `EMPLOYEE`: 본인 근태/휴가/게시판/메신저 등
@@ -17,14 +18,18 @@ Java / Spring Boot 백엔드와 React（Vite）프론트로 구성된 근태 관
 
 `frontend/src/App.jsx` 기준:
 
+- 로그인 후 기본 이동: **관리자·직원 모두 `/menu`**(메인 메뉴).
 - **공통**
   - `/login`: 로그인
-  - `/board`, `/board/:postId`: 게시판 목록/상세(댓글 포함)
+  - `/board`: 게시판 목록
+  - `/board/post/:postId`: 게시판 상세(댓글 포함) — **표준 URL**
+  - `/board/:postId`: 구 URL — 숫자 ID면 **`/board/post/:postId`로 리다이렉트**
   - `/messenger`: 사내 메신저
   - `/vacation`: 휴가 신청/내 신청 목록
 - **직원(EMPLOYEE)**
   - `/work-input`: 근태 입력
   - `/work-history`: 근무 이력 조회
+  - **참고:** `ADMIN` 역할로 `/work-input`에 접근하면 **`/menu`로 리다이렉트**됩니다(근태 입력은 일반 직원 전용).
 - **관리자(ADMIN)**
   - `/menu`: 메인 메뉴
   - `/employees`: 직원 마스터
@@ -42,22 +47,32 @@ Java / Spring Boot 백엔드와 React（Vite）프론트로 구성된 근태 관
 컨트롤러 기준(대표):
 
 - **인증**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+  - **TOTP**: `POST /api/auth/totp/verify`, `POST /api/auth/totp/enroll`, `GET /api/auth/totp/setup`, `POST /api/auth/totp/enable`, `POST /api/auth/totp/disable`, `GET /api/auth/totp/status`
 - **근태(WorkTime)**:
   - `GET /api/worktime?month=YYYY-MM[&employeeId=...]` (관리자는 직원 지정 가능)
+  - `GET /api/worktime/metrics?month=YYYY-MM[&employeeId=...]` (월간 지표·경고용)
   - `POST /api/worktime`, `PUT /api/worktime/{id}`, `DELETE /api/worktime/{id}`
   - `POST /api/worktime/bulk` (월간 일괄 저장)
   - `POST /api/worktime/import-kintaihyo` (관리자 전용, 근무표 Excel)
   - `POST /api/worktime/send-monthly-report` (직원 실행 → 관리자에게 월간 레포트 이메일)
+- **근태 가져오기·요약(관리자, 설계 경로 `/api/attendance`)**:
+  - `POST /api/attendance/import` (파일 업로드)
+  - `GET /api/attendance/summary?month=YYYY-MM`
+- **통계(관리자)**: `GET /api/statistics/monthly?month=YYYY-MM`
+- **관리자 월간 근태 지표**(잔업·휴일·심야 등): `GET /api/admin/attendance-metrics?month=YYYY-MM` (쿼리: `standardMonthlyMinutes`, `employeeId` 등)
 - **직원 마스터(관리자)**: `/api/employees/*`
   - 직원 CRUD, 초대 이메일 저장/발송, 일괄 삭제 등
 - **사진(직원 프로필)**:
   - `POST /api/employees/{id}/photo` (관리자 업로드)
+  - `POST /api/employees/me/photo`, `DELETE /api/employees/me/photo` (본인)
   - `GET /api/employees/{id}/photo` (로그인 사용자면 조회 가능)
-- **게시판**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/{postId}`, 댓글 `POST/DELETE /api/board/{postId}/comments/*`
-- **메신저**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`
+- **본인 프로필(직원·관리자 공통)**: `GET /api/employees/me/profile`, `PATCH /api/employees/me/profile`
+- **사용자 목록(메신저 등)**: `GET /api/users` (로그인 사용자 전원)
+- **게시판**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/posts/{postId}`, `PATCH /api/board/posts/{postId}/pin`, 댓글 `POST /api/board/posts/{postId}/comments`, `DELETE /api/board/posts/{postId}/comments/{commentId}`
+- **메신저**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`, 대화 삭제 `DELETE /api/messenger/conversation/{partnerId}` 또는 `POST /api/messenger/conversation/{partnerId}/delete`
 - **휴가**: `/api/vacations/*`
-  - 직원: `GET /api/vacations/my`, `POST /api/vacations`, `DELETE /api/vacations/{requestId}`
-  - 관리자: `GET /api/vacations?status=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`
+  - 직원: `GET /api/vacations/my`, `POST /api/vacations`, `GET /api/vacations/balance`, `GET /api/vacations/{requestId}/attachment`, `DELETE /api/vacations/{requestId}`
+  - 관리자: `GET /api/vacations?status=...`, `GET /api/vacations/balance/admin?employeeId=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`, `DELETE /api/vacations/{requestId}/admin`
 
 ## 로컬에서 실행하는 방법
 
@@ -122,11 +137,11 @@ Set-Location frontend; npm test
 
 **CI:** GitHub에 푸시하면 [`.github/workflows/tests.yml`](.github/workflows/tests.yml)이 백엔드 JUnit（`@SpringBootTest` 등）과 프론트 Vitest를 실행합니다. Actions 탭에서 실행 이력·로그를 확인하고, 백엔드 빌드의 **JUnit XML**은 워크플로 아티팩트（`junit-backend`）로 남습니다.
 
-현재 테스트 범위（예）:
+현재 테스트 범위(예):
 
 | 영역 | 파일 |
 |------|------|
-| 백엔드 | `backend/src/test/java/.../WorkTimeServiceTest.java`（동일勤務日 중복 등） |
+| 백엔드 | `WorkTimeServiceTest`, `LeaveBalanceServiceTest`, `AttendanceImportServiceCsvTest`, `TotpServiceVerifyTest`, `TotpPendingSetupStoreTest`, `AttendanceMetricsCalculatorTest` (`backend/src/test/java/com/kintai/...`) |
 | 프론트 | `frontend/src/utils/timeFormat.test.js` |
 
 ---

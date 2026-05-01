@@ -9,6 +9,7 @@ Java / Spring Boot バックエンドと React（Vite）フロントの勤怠管
 ### 認証・権限
 
 - **セッション認証**（ログイン成功時にセッションへユーザー情報を保存）
+- **TOTP（2FA）**: アカウントで TOTP を有効にすると、ログイン後にコード検証ステップがあります（`/api/auth/totp/*`）
 - **ロール**: `ADMIN` / `EMPLOYEE`
   - `ADMIN`: 管理者メニュー・管理機能へアクセス
   - `EMPLOYEE`: 自分の勤怠/休暇/掲示板/メッセンジャー等
@@ -17,14 +18,18 @@ Java / Spring Boot バックエンドと React（Vite）フロントの勤怠管
 
 `frontend/src/App.jsx` 基準:
 
+- ログイン後の既定遷移: **管理者・従業員とも `/menu`**（メインメニュー）
 - **共通**
   - `/login`: ログイン
-  - `/board`, `/board/:postId`: 掲示板（投稿・閲覧・コメント）
+  - `/board`: 掲示板一覧
+  - `/board/post/:postId`: 掲示板詳細（コメント含む）— **標準 URL**
+  - `/board/:postId`: 旧 URL — 数値 ID の場合 **`/board/post/:postId` へリダイレクト**
   - `/messenger`: 社内メッセンジャー
   - `/vacation`: 休暇申請（自分の申請一覧）
 - **従業員（EMPLOYEE）**
   - `/work-input`: 勤怠入力
   - `/work-history`: 勤務履歴
+  - **補足:** `ADMIN` が `/work-input` に入ると **`/menu` へリダイレクト**されます（勤怠入力は一般従業員向け）。
 - **管理者（ADMIN）**
   - `/menu`: メインメニュー
   - `/employees`: 社員マスタ
@@ -42,22 +47,32 @@ Java / Spring Boot バックエンドと React（Vite）フロントの勤怠管
 コントローラ実装（代表）:
 
 - **認証**: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`
+  - **TOTP**: `POST /api/auth/totp/verify`, `POST /api/auth/totp/enroll`, `GET /api/auth/totp/setup`, `POST /api/auth/totp/enable`, `POST /api/auth/totp/disable`, `GET /api/auth/totp/status`
 - **勤怠（WorkTime）**:
   - `GET /api/worktime?month=YYYY-MM[&employeeId=...]`（管理者は従業員指定可）
+  - `GET /api/worktime/metrics?month=YYYY-MM[&employeeId=...]`（月次指標・警告用）
   - `POST /api/worktime`, `PUT /api/worktime/{id}`, `DELETE /api/worktime/{id}`
   - `POST /api/worktime/bulk`（月間の一括保存／上書き）
   - `POST /api/worktime/import-kintaihyo`（管理者のみ、勤務表 Excel 取込）
   - `POST /api/worktime/send-monthly-report`（従業員実行 → 管理者へ月次レポート送信）
+- **勤怠取込・サマリー（管理者、`/api/attendance`）**:
+  - `POST /api/attendance/import`（ファイルアップロード）
+  - `GET /api/attendance/summary?month=YYYY-MM`
+- **統計（管理者）**: `GET /api/statistics/monthly?month=YYYY-MM`
+- **管理者向け月次勤怠指標**（残業・休日労働・深夜等）: `GET /api/admin/attendance-metrics?month=YYYY-MM`（クエリ: `standardMonthlyMinutes`, `employeeId` 等）
 - **社員マスタ（管理者）**: `/api/employees/*`
   - 登録/更新、招待メール、バッチ削除等
 - **社員写真（プロフィール）**:
   - `POST /api/employees/{id}/photo`（管理者アップロード）
+  - `POST /api/employees/me/photo`, `DELETE /api/employees/me/photo`（本人）
   - `GET /api/employees/{id}/photo`（ログイン中ユーザーなら取得可能）
-- **掲示板**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/{postId}`, コメント `POST/DELETE /api/board/{postId}/comments/*`
-- **メッセンジャー**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`
+- **本人プロフィール（従業員・管理者共通）**: `GET /api/employees/me/profile`, `PATCH /api/employees/me/profile`
+- **ユーザー一覧（メッセンジャー等）**: `GET /api/users`（ログイン済みユーザー全員）
+- **掲示板**: `GET/POST /api/board`, `GET/PUT/DELETE /api/board/posts/{postId}`, `PATCH /api/board/posts/{postId}/pin`, コメント `POST /api/board/posts/{postId}/comments`, `DELETE /api/board/posts/{postId}/comments/{commentId}`
+- **メッセンジャー**: `GET /api/messenger/conversations`, `GET /api/messenger/conversation/{partnerId}`, `POST /api/messenger/send`, `GET /api/messenger/unread-count`, 会話削除 `DELETE /api/messenger/conversation/{partnerId}` または `POST /api/messenger/conversation/{partnerId}/delete`
 - **休暇**: `/api/vacations/*`
-  - 従業員: `GET /api/vacations/my`, `POST /api/vacations`, `DELETE /api/vacations/{requestId}`
-  - 管理者: `GET /api/vacations?status=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`
+  - 従業員: `GET /api/vacations/my`, `POST /api/vacations`, `GET /api/vacations/balance`, `GET /api/vacations/{requestId}/attachment`, `DELETE /api/vacations/{requestId}`
+  - 管理者: `GET /api/vacations?status=...`, `GET /api/vacations/balance/admin?employeeId=...`, `PUT /api/vacations/{requestId}/approve`, `PUT /api/vacations/{requestId}/reject`, `DELETE /api/vacations/{requestId}/admin`
 
 ## ローカル開発の実行方法
 
@@ -126,7 +141,7 @@ Set-Location frontend; npm test
 
 | 領域 | ファイル |
 |------|----------|
-| バックエンド | `backend/src/test/java/.../WorkTimeServiceTest.java`（同一勤務日の重複など） |
+| バックエンド | `WorkTimeServiceTest`, `LeaveBalanceServiceTest`, `AttendanceImportServiceCsvTest`, `TotpServiceVerifyTest`, `TotpPendingSetupStoreTest`, `AttendanceMetricsCalculatorTest`（`backend/src/test/java/com/kintai/...`） |
 | フロント | `frontend/src/utils/timeFormat.test.js` |
 
 ---

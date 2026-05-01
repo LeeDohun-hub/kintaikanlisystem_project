@@ -28,6 +28,12 @@ public class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", msg.isEmpty() ? "入力内容をご確認ください。" : msg));
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(Map.of("error", ex.getMessage() != null ? ex.getMessage() : "入力内容をご確認ください。"));
+    }
+
     @ExceptionHandler(DataAccessException.class)
     public ResponseEntity<Map<String, String>> handleDataAccess(DataAccessException ex) {
         log.error("Database error", ex);

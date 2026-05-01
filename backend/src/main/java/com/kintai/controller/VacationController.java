@@ -1,6 +1,7 @@
 package com.kintai.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kintai.auth.AdminOnly;
 import com.kintai.dto.LoginResponse;
 import com.kintai.dto.LeaveBalanceResponse;
 import com.kintai.dto.VacationRejectRequest;
@@ -122,13 +123,11 @@ public class VacationController {
     }
 
     @GetMapping("/balance/admin")
+    @AdminOnly
     public ResponseEntity<?> balanceForEmployee(
             @RequestParam("employeeId") Long employeeId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
-        if (!"ADMIN".equals(user.getRole())) {
-            return ApiResponses.error(HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
-        }
         return ResponseEntity.ok(leaveBalanceService.forEmployee(employeeId, java.time.LocalDate.now()));
     }
 
@@ -148,6 +147,7 @@ public class VacationController {
     // ── 管理者向け ──────────────────────────────────────────────
 
     @DeleteMapping("/{requestId}/admin")
+    @AdminOnly
     public ResponseEntity<?> adminDelete(
             @PathVariable("requestId") Long requestId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
@@ -161,14 +161,12 @@ public class VacationController {
     }
 
     @GetMapping
+    @AdminOnly
     public ResponseEntity<?> allRequests(
             @RequestParam(value = "status", required = false) String status,
             HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
         if (user == null) return ApiResponses.unauthorized();
-        if (!"ADMIN".equals(user.getRole())) {
-            return ApiResponses.error(HttpStatus.FORBIDDEN, "管理者のみアクセスできます。");
-        }
         try {
             return ResponseEntity.ok(vacationService.getAllRequests(status));
         } catch (IllegalArgumentException e) {
@@ -177,6 +175,7 @@ public class VacationController {
     }
 
     @PutMapping("/{requestId}/approve")
+    @AdminOnly
     public ResponseEntity<?> approve(
             @PathVariable("requestId") Long requestId, HttpSession session) {
         LoginResponse user = LoginSessionSupport.requireAuthenticatedUser(session);
@@ -189,6 +188,7 @@ public class VacationController {
     }
 
     @PutMapping("/{requestId}/reject")
+    @AdminOnly
     public ResponseEntity<?> reject(
             @PathVariable("requestId") Long requestId,
             @RequestBody(required = false) VacationRejectRequest req,
