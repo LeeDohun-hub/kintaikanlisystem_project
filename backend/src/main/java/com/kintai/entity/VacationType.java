@@ -2,23 +2,40 @@ package com.kintai.entity;
 
 public enum VacationType {
 
-    // ── 年次有給休暇（年休残数を消費する） ────────────────────────
-    FULL,                       // 全休
-    HALF_AM,                    // 午前半休
-    HALF_PM,                    // 午後半休
+    // ── 年次有給休暇（遡及不可） ────────────────────────────────────
+    FULL(false, 0, false),
+    HALF_AM(false, 0, false),
+    HALF_PM(false, 0, false),
 
-    // ── 経弔休暇（年休残数を消費しない） ──────────────────────────
-    CONDOLENCE_OWN_MARRIAGE,    // 本人結婚   最大5日
-    CONDOLENCE_CHILD_MARRIAGE,  // 子供結婚   最大1日
-    CONDOLENCE_SPOUSE_BIRTH,    // 配偶者出産 最大3日
-    CONDOLENCE_FUNERAL_1ST,     // 忌引き（親・配偶者・子）最大5日
-    CONDOLENCE_FUNERAL_2ND,     // 忌引き（祖父母・兄弟） 最大3日
+    // ── 経弔休暇 ────────────────────────────────────────────────────
+    CONDOLENCE_OWN_MARRIAGE(false, 0, false),
+    CONDOLENCE_CHILD_MARRIAGE(false, 0, false),
+    CONDOLENCE_SPOUSE_BIRTH(true, 3, false),   // 緊急: 遡及可 / 証明任意
+    CONDOLENCE_FUNERAL_1ST(true, 3, true),     // 緊急: 遡及可 / 証明必須
+    CONDOLENCE_FUNERAL_2ND(true, 3, true),     // 緊急: 遡及可 / 証明必須
 
-    // ── 産休・育休（年休残数を消費しない） ────────────────────────
-    MATERNITY_PRE,              // 産前休暇
-    MATERNITY_POST,             // 産後休暇
-    CHILDCARE_LEAVE,            // 育児休職
+    // ── 産休・育休（遡及可） ────────────────────────────────────────
+    MATERNITY_PRE(true, 7, true),
+    MATERNITY_POST(true, 7, true),
+    CHILDCARE_LEAVE(true, 7, true),
 
-    // ── 病欠（会社独自・年休残数を消費しない） ────────────────────
-    SICK_LEAVE                  // 病欠
+    // ── 病欠（遡及可 / 証明必須） ───────────────────────────────────
+    SICK_LEAVE(true, 7, true);
+
+    /** 社員が過去日付で自己申請できるか */
+    private final boolean retroAllowed;
+    /** 遡及申請の最大日数（retroAllowed=false の場合は 0） */
+    private final int retroMaxDays;
+    /** 承認後に証明書提出が必要か */
+    private final boolean proofRequired;
+
+    VacationType(boolean retroAllowed, int retroMaxDays, boolean proofRequired) {
+        this.retroAllowed  = retroAllowed;
+        this.retroMaxDays  = retroMaxDays;
+        this.proofRequired = proofRequired;
+    }
+
+    public boolean isRetroAllowed()  { return retroAllowed; }
+    public int    getRetroMaxDays()  { return retroMaxDays; }
+    public boolean isProofRequired() { return proofRequired; }
 }

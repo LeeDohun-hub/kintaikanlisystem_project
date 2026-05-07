@@ -40,7 +40,10 @@
       "Bash(npm list *)",
       "Bash(./gradlew dependencies *)",
       "Bash(Get-Date *)",
-      "Bash(curl -s \"http://worldtimeapi.org/api/timezone/Asia/Seoul\")"
+      "Bash(curl -s \"http://worldtimeapi.org/api/timezone/Asia/Seoul\")",
+      "PowerShell(Head *)",
+      "PowerShell(cd C:\\\\WorkSpace\\\\kintaikanlisystem_project\\\\backend; .\\\\gradlew.bat compileJava 2>&1 | Where-Object { $_ -match \"error:|BUILD\" } | Select-Object -Last 10)",
+      "PowerShell(cd C:\\\\WorkSpace\\\\kintaikanlisystem_project\\\\backend; .\\\\gradlew.bat compileJava 2>&1 | Where-Object { $_ -match \"error:|BUILD\" } | Select-Object -Last 5)"
     ]
   }
 }

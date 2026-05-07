@@ -16,10 +16,10 @@ export function MessengerUnreadProvider({ children }) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const refresh = useCallback(() => {
-    api
-      .get("/messenger/unread-count")
-      .then((r) => setUnreadCount(Number(r.data?.count) || 0))
-      .catch(() => {});
+    Promise.all([
+      api.get("/messenger/unread-count").then((r) => Number(r.data?.count) || 0).catch(() => 0),
+      api.get("/group-messenger/unread-count").then((r) => Number(r.data?.count) || 0).catch(() => 0),
+    ]).then(([dm, group]) => setUnreadCount(dm + group));
   }, []);
 
   useEffect(() => {

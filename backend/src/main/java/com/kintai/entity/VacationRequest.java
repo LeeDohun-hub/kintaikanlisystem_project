@@ -35,7 +35,7 @@ public class VacationRequest {
     private String reason;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 10)
+    @Column(nullable = false, length = 24)
     @Builder.Default
     private VacationStatus status = VacationStatus.PENDING;
 
@@ -49,13 +49,31 @@ public class VacationRequest {
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
 
-    /** 添付ファイル保存パス（経弔・産休育休・病欠で使用） */
+    /** 添付ファイル保存パス */
     @Column(name = "attachment_path", length = 255)
     private String attachmentPath;
 
     /** 添付ファイルの元のファイル名（表示用） */
     @Column(name = "attachment_name", length = 255)
     private String attachmentName;
+
+    /** 過去日付の遡及申請かどうか */
+    @Column(name = "is_retroactive", nullable = false)
+    @Builder.Default
+    private boolean retroactive = false;
+
+    /** 遡及申請の事由（遡及申請の場合は必須） */
+    @Column(name = "retro_reason", length = 500)
+    private String retroReason;
+
+    /** 証明書の提出期限（遡及 + 証明必要な場合に設定） */
+    @Column(name = "proof_due_date")
+    private LocalDate proofDueDate;
+
+    /** 管理者が代理申請した場合の管理者 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "proxy_submitter_id")
+    private Employee proxySubmitter;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
@@ -87,17 +105,40 @@ public class VacationRequest {
 
     public void applyApproval(Employee approver, String notPendingMessage) {
         assertPending(notPendingMessage);
-        this.status = VacationStatus.APPROVED;
+        this.status     = VacationStatus.APPROVED;
         this.approvedBy = approver;
         this.approvedAt = LocalDateTime.now();
         this.rejectReason = null;
     }
 
+    /** 証明書待ち承認（遡及 + proofRequired かつ未添付の場合） */
+    public void applyApprovalPendingProof(Employee approver, LocalDate dueDate, String notPendingMessage) {
+        assertPending(notPendingMessage);
+        this.status       = VacationStatus.APPROVED_PENDING_PROOF;
+        this.approvedBy   = approver;
+        this.approvedAt   = LocalDateTime.now();
+        this.rejectReason = null;
+        this.proofDueDate = dueDate;
+    }
+
+    /** 証明書確認 → 最終承認 */
+    public void applyProofVerification(Employee verifier) {
+        if (status != VacationStatus.APPROVED_PENDING_PROOF) {
+            throw new IllegalArgumentException("証明書の確認が必要な申請のみ実行できます。");
+        }
+        if (attachmentPath == null) {
+            throw new IllegalArgumentException("証明書がまだアップロードされていません。");
+        }
+        this.status     = VacationStatus.APPROVED;
+        this.approvedBy = verifier;
+        this.approvedAt = LocalDateTime.now();
+    }
+
     public void applyRejection(Employee approver, String rejectReason, String notPendingMessage) {
         assertPending(notPendingMessage);
-        this.status = VacationStatus.REJECTED;
-        this.approvedBy = approver;
-        this.approvedAt = LocalDateTime.now();
+        this.status       = VacationStatus.REJECTED;
+        this.approvedBy   = approver;
+        this.approvedAt   = LocalDateTime.now();
         this.rejectReason = rejectReason;
     }
 

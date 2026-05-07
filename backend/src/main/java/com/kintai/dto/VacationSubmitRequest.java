@@ -20,4 +20,7 @@ public class VacationSubmitRequest {
     private LocalDate vacationEndDate;
     /** 申請理由（任意） */
     private String reason;
+
+    /** 遡及申請の事由（遡及申請の場合は必須） */
+    private String retroReason;
 }

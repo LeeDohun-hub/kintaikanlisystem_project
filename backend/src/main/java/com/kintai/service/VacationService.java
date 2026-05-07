@@ -1,61 +1,49 @@
 package com.kintai.service;
 
-import com.kintai.dto.LoginResponse;
-import com.kintai.dto.VacationRejectRequest;
-import com.kintai.dto.VacationRequestResponse;
-import com.kintai.dto.VacationSubmitRequest;
-import com.kintai.dto.LeaveBalanceResponse;
-import com.kintai.entity.Employee;
-import com.kintai.entity.Role;
-import com.kintai.entity.VacationRequest;
-import com.kintai.entity.VacationStatus;
-import com.kintai.entity.VacationType;
-import com.kintai.repository.EmployeeAccountRepository;
-import com.kintai.repository.EmployeeRepository;
-import com.kintai.repository.VacationRequestRepository;
+import com.kintai.dto.*;
+import com.kintai.entity.*;
+import com.kintai.repository.*;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.*;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
 public class VacationService {
 
-    private static final int REASON_MAX_LEN = 500;
-    private static final int MAX_RANGE_DAYS = 31;      // 年休・病欠
-    private static final int MAX_RANGE_CONDOLENCE = 7; // 経弔休暇
-    private static final int MAX_RANGE_MATERNITY = 730; // 産休育休（最大2年）
+    private static final int  REASON_MAX_LEN       = 500;
+    private static final int  MAX_RANGE_DAYS        = 31;
+    private static final int  MAX_RANGE_CONDOLENCE  = 7;
+    private static final int  MAX_RANGE_MATERNITY   = 730;
+    private static final int  PROOF_DUE_DAYS        = 7;
+    private static final long MAX_ATTACHMENT_SIZE   = 10L * 1024 * 1024;
+    private static final Set<String> ALLOWED_ATTACHMENT_TYPES =
+            Set.of("application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp");
+
     private static final String MSG_VACATION_TYPE =
             "休暇区分が正しくありません。（FULL / HALF_AM / HALF_PM / " +
             "CONDOLENCE_OWN_MARRIAGE / CONDOLENCE_CHILD_MARRIAGE / CONDOLENCE_SPOUSE_BIRTH / " +
             "CONDOLENCE_FUNERAL_1ST / CONDOLENCE_FUNERAL_2ND / " +
             "MATERNITY_PRE / MATERNITY_POST / CHILDCARE_LEAVE / SICK_LEAVE）";
-    private static final String MSG_STATUS_FILTER = "statusの値が不正です。";
+    private static final String MSG_STATUS_FILTER  = "statusの値が不正です。";
     private static final String MSG_PENDING_APPROVE = "申請中の休暇申請のみ承認できます。";
-    private static final String MSG_PENDING_REJECT = "申請中の休暇申請のみ却下できます。";
+    private static final String MSG_PENDING_REJECT  = "申請中の休暇申請のみ却下できます。";
 
-    private static final long MAX_ATTACHMENT_SIZE = 10L * 1024 * 1024; // 10 MB
-    private static final Set<String> ALLOWED_ATTACHMENT_TYPES =
-            Set.of("application/pdf", "image/jpeg", "image/png", "image/gif", "image/webp");
-
-    private final VacationRequestRepository vacationRequestRepository;
-    private final EmployeeRepository employeeRepository;
-    private final EmployeeAccountRepository employeeAccountRepository;
-    private final LeaveBalanceService leaveBalanceService;
+    private final VacationRequestRepository  vacationRequestRepository;
+    private final EmployeeRepository         employeeRepository;
+    private final EmployeeAccountRepository  employeeAccountRepository;
+    private final LeaveBalanceService        leaveBalanceService;
+    private final VacationAuditLogRepository auditLogRepository;
 
     @Value("${app.vacation.upload-dir:./uploads/vacation}")
     private String vacationUploadDir;
@@ -64,76 +52,58 @@ public class VacationService {
 
     @Transactional
     public Object submit(LoginResponse loginUser, VacationSubmitRequest req, MultipartFile file) {
-        VacationType type = parseVacationType(req.getVacationType());
-        String reason = normalizeOptionalBounded(req.getReason(), REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
+        VacationType type   = parseVacationType(req.getVacationType());
+        String reason       = normalizeOptionalBounded(req.getReason(),       REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
+        String retroReason  = normalizeOptionalBounded(req.getRetroReason(),  REASON_MAX_LEN, "遡及事由は500文字以内で入力してください。");
 
         Employee employee = findEmployee(loginUser.getId());
         ensureEnoughLeave(loginUser.getId(), type);
 
-        // 添付ファイルの保存（送られた場合のみ）
-        String savedPath = null;
-        String savedName = null;
+        String savedPath = null, savedName = null;
         if (file != null && !file.isEmpty()) {
-            var attachment = storeAttachment(file);
-            savedPath = attachment[0];
-            savedName = attachment[1];
+            var att = storeAttachment(file);
+            savedPath = att[0];
+            savedName = att[1];
         }
 
         LocalDate start = req.getVacationStartDate();
-        LocalDate end = req.getVacationEndDate();
+        LocalDate end   = req.getVacationEndDate();
         if (start == null && end == null) {
             LocalDate single = req.getVacationDate();
-            validateSubmitDates(single);
+            boolean retro = isRetroDate(single);
+            validateRetroConditions(single, type, retroReason, false);
             assertNoDuplicateActiveRequest(loginUser.getId(), single);
             VacationRequest saved = vacationRequestRepository.save(
-                    VacationRequest.builder()
-                            .employee(employee)
-                            .vacationType(type)
-                            .vacationDate(single)
-                            .reason(reason)
-                            .status(VacationStatus.PENDING)
-                            .attachmentPath(savedPath)
-                            .attachmentName(savedName)
-                            .build()
-            );
+                    buildRequest(employee, type, single, reason, savedPath, savedName, retro, retroReason, null));
+            writeAuditLog(saved, loginUser.getId(), employee.getEmployeeName(), "SUBMITTED", null, VacationStatus.PENDING.name(), retro, false, retroReason);
             return toResponse(saved);
         }
 
-        if (start == null || end == null) {
-            throw new IllegalArgumentException("休暇の開始日と終了日を入力してください。");
-        }
-        if (end.isBefore(start)) {
-            throw new IllegalArgumentException("終了日は開始日以降の日付を指定してください。");
-        }
-        long days = java.time.temporal.ChronoUnit.DAYS.between(start, end) + 1;
-        int maxDays = maxRangeDays(type);
-        if (days > maxDays) {
-            throw new IllegalArgumentException("一度に申請できる日数は最大" + maxDays + "日です。");
-        }
+        if (start == null || end == null) throw new IllegalArgumentException("休暇の開始日と終了日を入力してください。");
+        if (end.isBefore(start))          throw new IllegalArgumentException("終了日は開始日以降の日付を指定してください。");
+        long days = ChronoUnit.DAYS.between(start, end) + 1;
+        if (days > maxRangeDays(type))    throw new IllegalArgumentException("一度に申請できる日数は最大" + maxRangeDays(type) + "日です。");
 
-        // 区間申請：全レコードに同じ添付パスを保存
-        java.util.List<VacationRequest> toSave = new java.util.ArrayList<>();
+        boolean retro = isRetroDate(start);
+        // Validate retroactive conditions once (based on start date)
+        validateRetroConditions(start, type, retroReason, false);
+
+        List<VacationRequest> toSave = new ArrayList<>();
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
-            validateSubmitDates(d);
             assertNoDuplicateActiveRequest(loginUser.getId(), d);
-            toSave.add(VacationRequest.builder()
-                    .employee(employee)
-                    .vacationType(type)
-                    .vacationDate(d)
-                    .reason(reason)
-                    .status(VacationStatus.PENDING)
-                    .attachmentPath(savedPath)
-                    .attachmentName(savedName)
-                    .build());
+            toSave.add(buildRequest(employee, type, d, reason, savedPath, savedName, retro, retroReason, null));
         }
-        return vacationRequestRepository.saveAll(toSave).stream().map(this::toResponse).toList();
+        List<VacationRequest> saved = vacationRequestRepository.saveAll(toSave);
+        if (!saved.isEmpty()) {
+            writeAuditLog(saved.get(0), loginUser.getId(), employee.getEmployeeName(), "SUBMITTED", null, VacationStatus.PENDING.name(), retro, false, retroReason);
+        }
+        return saved.stream().map(this::toResponse).toList();
     }
 
     @Transactional(readOnly = true)
     public List<VacationRequestResponse> getMyRequests(Long employeeId) {
         return vacationRequestRepository.findByEmployeeId(employeeId).stream()
-                .map(this::toResponse)
-                .toList();
+                .map(this::toResponse).toList();
     }
 
     @Transactional
@@ -143,36 +113,84 @@ public class VacationService {
         vacationRequestRepository.delete(v);
     }
 
+    /** 管理者による添付ファイルの追加・更新（ステータス問わず） */
+    @Transactional
+    public VacationRequestResponse adminUpdateAttachment(LoginResponse loginUser, Long requestId, MultipartFile file) {
+        requireAdmin(loginUser);
+        VacationRequest v = findRequest(requestId);
+        Employee admin = findEmployee(loginUser.getId());
+        var att = storeAttachment(file);
+        v.setAttachmentPath(att[0]);
+        v.setAttachmentName(att[1]);
+        vacationRequestRepository.save(v);
+        writeAuditLog(v, loginUser.getId(), admin.getEmployeeName(),
+                "ADMIN_ATTACHMENT_UPDATED", v.getStatus().name(), v.getStatus().name(),
+                v.isRetroactive(), v.getProxySubmitter() != null, "管理者が添付ファイルを更新");
+        return toResponse(v);
+    }
+
+    /** 証明書のアップロード（APPROVED_PENDING_PROOF 状態の申請に対して社員本人が実行） */
+    @Transactional
+    public VacationRequestResponse uploadProof(LoginResponse loginUser, Long requestId, MultipartFile file) {
+        VacationRequest v = findRequest(requestId);
+        if (!v.getEmployee().getEmployeeId().equals(loginUser.getId())) {
+            throw new IllegalArgumentException("アクセス権限がありません。");
+        }
+        if (v.getStatus() != VacationStatus.APPROVED_PENDING_PROOF) {
+            throw new IllegalArgumentException("証明書のアップロードが必要な申請のみ実行できます。");
+        }
+        var att = storeAttachment(file);
+        v.setAttachmentPath(att[0]);
+        v.setAttachmentName(att[1]);
+        vacationRequestRepository.save(v);
+        writeAuditLog(v, loginUser.getId(), v.getEmployee().getEmployeeName(),
+                "PROOF_UPLOADED", VacationStatus.APPROVED_PENDING_PROOF.name(), VacationStatus.APPROVED_PENDING_PROOF.name(),
+                true, false, null);
+        return toResponse(v);
+    }
+
     // ── 管理者向け ──────────────────────────────────────────────
 
     @Transactional
     public void adminDelete(LoginResponse loginUser, Long requestId) {
         requireAdmin(loginUser);
-        VacationRequest v = findRequest(requestId);
-        vacationRequestRepository.delete(v);
+        vacationRequestRepository.delete(findRequest(requestId));
     }
 
     @Transactional(readOnly = true)
     public List<VacationRequestResponse> getAllRequests(String statusFilter) {
         if (statusFilter != null && !statusFilter.isBlank()) {
             VacationStatus status = parseVacationStatusFilter(statusFilter);
-            return vacationRequestRepository.findByStatus(status).stream()
-                    .map(this::toResponse).toList();
+            return vacationRequestRepository.findByStatus(status).stream().map(this::toResponse).toList();
         }
-        return vacationRequestRepository.findAllWithDetails().stream()
-                .map(this::toResponse).toList();
+        return vacationRequestRepository.findAllWithDetails().stream().map(this::toResponse).toList();
     }
 
     @Transactional
     public VacationRequestResponse approve(LoginResponse loginUser, Long requestId) {
         requireAdmin(loginUser);
-        VacationRequest v = findRequest(requestId);
-        Employee approver = findEmployee(loginUser.getId());
-
-        // 承認直前にも残数チェック（同時申請対策）
+        VacationRequest v        = findRequest(requestId);
+        Employee        approver = findEmployee(loginUser.getId());
         ensureEnoughLeave(v.getEmployee().getEmployeeId(), v.getVacationType());
 
-        v.applyApproval(approver, MSG_PENDING_APPROVE);
+        VacationStatus oldStatus = v.getStatus();
+
+        // 遡及 + 証明必要 + 未添付 → APPROVED_PENDING_PROOF
+        boolean needsProof = v.isRetroactive()
+                && v.getVacationType().isProofRequired()
+                && v.getAttachmentPath() == null;
+
+        if (needsProof) {
+            v.applyApprovalPendingProof(approver, LocalDate.now().plusDays(PROOF_DUE_DAYS), MSG_PENDING_APPROVE);
+            writeAuditLog(v, loginUser.getId(), approver.getEmployeeName(),
+                    "APPROVED_PENDING_PROOF", oldStatus.name(), VacationStatus.APPROVED_PENDING_PROOF.name(),
+                    true, false, "証明書の提出期限: " + v.getProofDueDate());
+        } else {
+            v.applyApproval(approver, MSG_PENDING_APPROVE);
+            writeAuditLog(v, loginUser.getId(), approver.getEmployeeName(),
+                    "APPROVED", oldStatus.name(), VacationStatus.APPROVED.name(),
+                    v.isRetroactive(), false, null);
+        }
         return toResponse(vacationRequestRepository.save(v));
     }
 
@@ -182,28 +200,115 @@ public class VacationService {
         VacationRequest v = findRequest(requestId);
         String storedReason = normalizeOptionalBounded(
                 req.getRejectReason() != null ? req.getRejectReason() : "",
-                REASON_MAX_LEN,
-                "却下理由は500文字以内で入力してください。");
+                REASON_MAX_LEN, "却下理由は500文字以内で入力してください。");
         Employee approver = findEmployee(loginUser.getId());
+        VacationStatus oldStatus = v.getStatus();
         v.applyRejection(approver, storedReason, MSG_PENDING_REJECT);
+        writeAuditLog(v, loginUser.getId(), approver.getEmployeeName(),
+                "REJECTED", oldStatus.name(), VacationStatus.REJECTED.name(),
+                v.isRetroactive(), false, storedReason);
         return toResponse(vacationRequestRepository.save(v));
     }
 
-    // ── 内部 ────────────────────────────────────────────────────
+    /** 証明書の確認 → 最終承認（APPROVED_PENDING_PROOF → APPROVED） */
+    @Transactional
+    public VacationRequestResponse verifyProof(LoginResponse loginUser, Long requestId) {
+        requireAdmin(loginUser);
+        VacationRequest v        = findRequest(requestId);
+        Employee        verifier = findEmployee(loginUser.getId());
+        v.applyProofVerification(verifier);
+        writeAuditLog(v, loginUser.getId(), verifier.getEmployeeName(),
+                "PROOF_VERIFIED", VacationStatus.APPROVED_PENDING_PROOF.name(), VacationStatus.APPROVED.name(),
+                true, false, null);
+        return toResponse(vacationRequestRepository.save(v));
+    }
 
-    private void validateSubmitDates(LocalDate vacationDate) {
-        if (vacationDate == null) {
-            throw new IllegalArgumentException("休暇日を入力してください。");
+    /** 管理者代理申請（日付制限なし・即時承認） */
+    @Transactional
+    public Object adminProxySubmit(LoginResponse loginUser, VacationProxySubmitRequest req) {
+        requireAdmin(loginUser);
+        VacationType type        = parseVacationType(req.getVacationType());
+        Employee     target      = findEmployee(req.getEmployeeId());
+        Employee     admin       = findEmployee(loginUser.getId());
+        String       reason      = normalizeOptionalBounded(req.getReason(),       REASON_MAX_LEN, "申請理由は500文字以内で入力してください。");
+        String       retroReason = normalizeOptionalBounded(req.getRetroReason(),  REASON_MAX_LEN, "遡及事由は500文字以内で入力してください。");
+
+        LocalDate start = req.getVacationStartDate() != null ? req.getVacationStartDate() : req.getVacationDate();
+        LocalDate end   = req.getVacationEndDate()   != null ? req.getVacationEndDate()   : start;
+        if (start == null) throw new IllegalArgumentException("休暇日を指定してください。");
+        if (end.isBefore(start)) throw new IllegalArgumentException("終了日は開始日以降の日付を指定してください。");
+
+        boolean retro = isRetroDate(start);
+
+        List<VacationRequest> toSave = new ArrayList<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            assertNoDuplicateActiveRequest(target.getEmployeeId(), d);
+            VacationRequest vr = buildRequest(target, type, d, reason, null, null, retro, retroReason, admin);
+            vr.setStatus(VacationStatus.APPROVED);
+            vr.setApprovedBy(admin);
+            vr.setApprovedAt(LocalDateTime.now());
+            toSave.add(vr);
         }
-        if (vacationDate.isBefore(LocalDate.now())) {
-            throw new IllegalArgumentException("過去の日付には申請できません。");
+        List<VacationRequest> saved = vacationRequestRepository.saveAll(toSave);
+        if (!saved.isEmpty()) {
+            writeAuditLog(saved.get(0), loginUser.getId(), admin.getEmployeeName(),
+                    "PROXY_SUBMITTED", null, VacationStatus.APPROVED.name(), retro, true, retroReason);
+        }
+        return saved.stream().map(this::toResponse).toList();
+    }
+
+    /** 証明書一覧（APPROVED_PENDING_PROOF の申請）- 管理者向け */
+    @Transactional(readOnly = true)
+    public List<VacationRequestResponse> getPendingProofRequests(LoginResponse loginUser) {
+        requireAdmin(loginUser);
+        return vacationRequestRepository.findByStatus(VacationStatus.APPROVED_PENDING_PROOF)
+                .stream().map(this::toResponse).toList();
+    }
+
+    // ── 内部ヘルパー ────────────────────────────────────────────
+
+    private VacationRequest buildRequest(Employee employee, VacationType type, LocalDate date,
+                                         String reason, String attachPath, String attachName,
+                                         boolean retro, String retroReason, Employee proxySubmitter) {
+        return VacationRequest.builder()
+                .employee(employee)
+                .vacationType(type)
+                .vacationDate(date)
+                .reason(reason)
+                .status(VacationStatus.PENDING)
+                .attachmentPath(attachPath)
+                .attachmentName(attachName)
+                .retroactive(retro)
+                .retroReason(retro ? retroReason : null)
+                .proxySubmitter(proxySubmitter)
+                .build();
+    }
+
+    private static boolean isRetroDate(LocalDate date) {
+        return date != null && date.isBefore(LocalDate.now());
+    }
+
+    private void validateRetroConditions(LocalDate date, VacationType type, String retroReason, boolean isAdmin) {
+        if (date == null) throw new IllegalArgumentException("休暇日を入力してください。");
+        if (!isRetroDate(date)) return;
+        if (isAdmin) return;
+
+        if (!type.isRetroAllowed()) {
+            throw new IllegalArgumentException(
+                    "「" + type.name() + "」は遡及申請できません。管理者に代理申請を依頼してください。");
+        }
+        long daysBack = ChronoUnit.DAYS.between(date, LocalDate.now());
+        if (daysBack > type.getRetroMaxDays()) {
+            throw new IllegalArgumentException(
+                    "遡及申請の期限（最大" + type.getRetroMaxDays() + "日前）を超えています。（現在: " + daysBack + "日前）");
+        }
+        if (retroReason == null || retroReason.isBlank()) {
+            throw new IllegalArgumentException("遡及申請には申請事由の入力が必要です。");
         }
     }
 
     private VacationType parseVacationType(String raw) {
-        if (raw == null) {
-            throw new IllegalArgumentException(MSG_VACATION_TYPE);
-        }
+        if (raw == null) throw new IllegalArgumentException(MSG_VACATION_TYPE);
         try {
             return VacationType.valueOf(raw.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
@@ -219,77 +324,51 @@ public class VacationService {
         }
     }
 
-    private void assertNoDuplicateActiveRequest(Long employeeId, LocalDate vacationDate) {
-        boolean duplicate = vacationRequestRepository
+    private void assertNoDuplicateActiveRequest(Long employeeId, LocalDate date) {
+        boolean dup = vacationRequestRepository
                 .existsByEmployeeEmployeeIdAndVacationDateAndStatusIn(
-                        employeeId,
-                        vacationDate,
-                        List.of(VacationStatus.PENDING, VacationStatus.APPROVED));
-        if (duplicate) {
-            throw new IllegalArgumentException("指定日にすでに申請中または承認済の休暇申請があります。");
-        }
+                        employeeId, date,
+                        List.of(VacationStatus.PENDING, VacationStatus.APPROVED, VacationStatus.APPROVED_PENDING_PROOF));
+        if (dup) throw new IllegalArgumentException("指定日にすでに申請中または承認済の休暇申請があります。");
     }
 
-    /**
-     * 前後の空白を除去し、最大長を超えたら例外。入力 null は空文字として扱う。
-     */
     private String normalizeOptionalBounded(String raw, int maxLen, String tooLongMessage) {
         String s = raw != null ? raw.trim() : "";
-        if (s.length() > maxLen) {
-            throw new IllegalArgumentException(tooLongMessage);
-        }
+        if (s.length() > maxLen) throw new IllegalArgumentException(tooLongMessage);
         return s.isEmpty() ? null : s;
     }
 
     private void requireAdmin(LoginResponse user) {
-        if (!"ADMIN".equals(user.getRole())) {
-            throw new IllegalArgumentException("管理者のみ実行できます。");
-        }
+        if (!"ADMIN".equals(user.getRole())) throw new IllegalArgumentException("管理者のみ実行できます。");
     }
 
     private void ensureEnoughLeave(Long employeeId, VacationType type) {
-        // 経弔・産休育休・病欠は年休残数を消費しない
-        if (!isAnnualLeaveType(type)) {
-            return;
-        }
+        if (!isAnnualLeaveType(type)) return;
         boolean adminAccount = employeeAccountRepository.findById(employeeId)
-                .map(acc -> acc.getRole() == Role.ADMIN)
-                .orElse(false);
-        if (adminAccount) {
-            return;
-        }
+                .map(acc -> acc.getRole() == Role.ADMIN).orElse(false);
+        if (adminAccount) return;
         BigDecimal need = switch (type) {
             case FULL    -> new BigDecimal("1.0");
-            case HALF_AM,
-                 HALF_PM -> new BigDecimal("0.5");
+            case HALF_AM, HALF_PM -> new BigDecimal("0.5");
             default      -> BigDecimal.ZERO;
         };
         LeaveBalanceResponse bal = leaveBalanceService.forEmployee(employeeId, LocalDate.now());
-        if (!bal.isGranted()) {
-            throw new IllegalArgumentException("入社から6ヶ月経過後に年休が付与されます。現在は申請できません。");
-        }
-        if (bal.getRemainingDays() == null || bal.getRemainingDays().compareTo(need) < 0) {
+        if (!bal.isGranted()) throw new IllegalArgumentException("入社から6ヶ月経過後に年休が付与されます。現在は申請できません。");
+        if (bal.getRemainingDays() == null || bal.getRemainingDays().compareTo(need) < 0)
             throw new IllegalArgumentException("年休残数が不足しています。（残り: " + bal.getRemainingDays() + "）");
-        }
     }
 
     private static boolean isAnnualLeaveType(VacationType type) {
-        return type == VacationType.FULL
-                || type == VacationType.HALF_AM
-                || type == VacationType.HALF_PM;
+        return type == VacationType.FULL || type == VacationType.HALF_AM || type == VacationType.HALF_PM;
     }
 
     private static int maxRangeDays(VacationType type) {
         return switch (type) {
-            case CONDOLENCE_OWN_MARRIAGE,
-                 CONDOLENCE_CHILD_MARRIAGE,
-                 CONDOLENCE_SPOUSE_BIRTH,
-                 CONDOLENCE_FUNERAL_1ST,
+            case CONDOLENCE_OWN_MARRIAGE, CONDOLENCE_CHILD_MARRIAGE,
+                 CONDOLENCE_SPOUSE_BIRTH, CONDOLENCE_FUNERAL_1ST,
                  CONDOLENCE_FUNERAL_2ND  -> MAX_RANGE_CONDOLENCE;
-            case MATERNITY_PRE,
-                 MATERNITY_POST,
-                 CHILDCARE_LEAVE         -> MAX_RANGE_MATERNITY;
-            default                      -> MAX_RANGE_DAYS;
+            case MATERNITY_PRE, MATERNITY_POST, CHILDCARE_LEAVE -> MAX_RANGE_MATERNITY;
+            default -> MAX_RANGE_DAYS;
         };
     }
 
@@ -319,50 +398,57 @@ public class VacationService {
                 .createdAt(v.getCreatedAt())
                 .hasAttachment(v.getAttachmentPath() != null)
                 .attachmentName(v.getAttachmentName())
+                .retroactive(v.isRetroactive())
+                .retroReason(v.getRetroReason())
+                .proofDueDate(v.getProofDueDate())
+                .proxy(v.getProxySubmitter() != null)
+                .proxySubmitterName(v.getProxySubmitter() != null ? v.getProxySubmitter().getEmployeeName() : null)
                 .build();
     }
 
-    /**
-     * 添付ファイルを保存し、[保存パス, 元のファイル名] を返す。
-     */
     public String[] storeAttachment(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("ファイルが空です。");
-        }
-        if (file.getSize() > MAX_ATTACHMENT_SIZE) {
-            throw new IllegalArgumentException("添付ファイルは10MB以下にしてください。");
-        }
+        if (file == null || file.isEmpty()) throw new IllegalArgumentException("ファイルが空です。");
+        if (file.getSize() > MAX_ATTACHMENT_SIZE) throw new IllegalArgumentException("添付ファイルは10MB以下にしてください。");
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_ATTACHMENT_TYPES.contains(contentType)) {
+        if (contentType == null || !ALLOWED_ATTACHMENT_TYPES.contains(contentType))
             throw new IllegalArgumentException("添付ファイルは PDF / JPEG / PNG / GIF / WebP のみ対応しています。");
-        }
-
         String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "attachment";
-        String ext = "";
         int dot = originalName.lastIndexOf('.');
-        if (dot >= 0) ext = originalName.substring(dot);
+        String ext = dot >= 0 ? originalName.substring(dot) : "";
         String storedName = UUID.randomUUID() + ext;
-
         try {
             Path dir = Paths.get(vacationUploadDir);
             Files.createDirectories(dir);
-            Path dest = dir.resolve(storedName);
-            Files.copy(file.getInputStream(), dest, StandardCopyOption.REPLACE_EXISTING);
+            Files.copy(file.getInputStream(), dir.resolve(storedName), StandardCopyOption.REPLACE_EXISTING);
             return new String[]{storedName, originalName};
         } catch (IOException e) {
             throw new IllegalStateException("ファイルの保存に失敗しました。", e);
         }
     }
 
-    /** 添付ファイルの物理パスを取得する（ダウンロード用） */
     public Path resolveAttachmentPath(Long requestId, Long requesterId, boolean isAdmin) {
         VacationRequest v = findRequest(requestId);
-        if (!isAdmin && !v.getEmployee().getEmployeeId().equals(requesterId)) {
+        if (!isAdmin && !v.getEmployee().getEmployeeId().equals(requesterId))
             throw new IllegalArgumentException("アクセス権限がありません。");
-        }
-        if (v.getAttachmentPath() == null) {
-            throw new IllegalArgumentException("添付ファイルが存在しません。");
-        }
+        if (v.getAttachmentPath() == null) throw new IllegalArgumentException("添付ファイルが存在しません。");
         return Paths.get(vacationUploadDir).resolve(v.getAttachmentPath());
+    }
+
+    private void writeAuditLog(VacationRequest v, Long actorId, String actorName,
+                                String action, String oldStatus, String newStatus,
+                                boolean retro, boolean proxy, String detail) {
+        auditLogRepository.save(VacationAuditLog.builder()
+                .vacationRequestId(v.getRequestId())
+                .actorId(actorId)
+                .actorName(actorName)
+                .applicantId(v.getEmployee().getEmployeeId())
+                .applicantName(v.getEmployee().getEmployeeName())
+                .action(action)
+                .oldStatus(oldStatus)
+                .newStatus(newStatus)
+                .retroactive(retro)
+                .proxy(proxy)
+                .detail(detail)
+                .build());
     }
 }

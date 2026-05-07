@@ -43,6 +43,10 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
 }
 
+tasks.named('compileJava') {
+    options.compilerArgs << '-parameters'
+}
+
 tasks.named('test') {
     useJUnitPlatform()
 }

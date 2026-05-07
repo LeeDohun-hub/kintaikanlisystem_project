@@ -21,11 +21,37 @@ const TYPE_LABEL = {
   SICK_LEAVE:       "病欠",
 };
 
-const STATUS_LABEL = { PENDING: "申請中", APPROVED: "承認済", REJECTED: "却下" };
+const STATUS_LABEL = {
+  PENDING:               "申請中",
+  APPROVED:              "承認済",
+  APPROVED_PENDING_PROOF:"承認済（証明待）",
+  REJECTED:              "却下",
+};
 const STATUS_COLOR = {
-  PENDING:  { background: "#fff8e1", color: "#b45309", border: "1px solid #fde68a" },
-  APPROVED: { background: "#e8fff4", color: "#065f46", border: "1px solid #a3dcc4" },
-  REJECTED: { background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3" },
+  PENDING:               { background: "#fff8e1", color: "#b45309", border: "1px solid #fde68a" },
+  APPROVED:              { background: "#e8fff4", color: "#065f46", border: "1px solid #a3dcc4" },
+  APPROVED_PENDING_PROOF:{ background: "#fff3cd", color: "#856404", border: "1px solid #ffc107" },
+  REJECTED:              { background: "#fff1f2", color: "#be123c", border: "1px solid #fecdd3" },
+};
+
+// 遡及申請の設定（バックエンドの VacationType と一致させること）
+const RETRO_ELIGIBLE = new Set([
+  "SICK_LEAVE",
+  "CONDOLENCE_FUNERAL_1ST",
+  "CONDOLENCE_FUNERAL_2ND",
+  "CONDOLENCE_SPOUSE_BIRTH",
+  "MATERNITY_PRE",
+  "MATERNITY_POST",
+  "CHILDCARE_LEAVE",
+]);
+const RETRO_MAX_DAYS = {
+  SICK_LEAVE:              7,
+  CONDOLENCE_FUNERAL_1ST:  3,
+  CONDOLENCE_FUNERAL_2ND:  3,
+  CONDOLENCE_SPOUSE_BIRTH: 3,
+  MATERNITY_PRE:           7,
+  MATERNITY_POST:          7,
+  CHILDCARE_LEAVE:         7,
 };
 
 const TABS = [
@@ -243,9 +269,26 @@ export default function VacationRequest() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [attachmentFile, setAttachmentFile] = useState(null);
+  const [retroReason, setRetroReason] = useState("");
+
+  // 証明書アップロード
+  const [proofFile, setProofFile]       = useState(null);
+  const [proofTargetIds, setProofTargetIds] = useState(null); // requestIds[]
+  const [proofSubmitting, setProofSubmitting] = useState(false);
 
   const currentCat = CATEGORIES.find((c) => c.key === category);
   const requiresAttachment = category !== "ANNUAL";
+
+  // 遡及判定
+  const isStartPast = form.vacationStartDate && form.vacationStartDate < today();
+  const isRetroEligible = RETRO_ELIGIBLE.has(form.vacationType);
+  const maxRetroDays = RETRO_MAX_DAYS[form.vacationType] || 0;
+  const daysBack = isStartPast
+    ? Math.floor((new Date(today()) - new Date(form.vacationStartDate)) / 86400000)
+    : 0;
+  const retroTooOld = isStartPast && daysBack > maxRetroDays;
+  const retroNeedsReason = isStartPast && isRetroEligible && !retroTooOld && !retroReason.trim();
+  const cannotSubmit = isStartPast && (!isRetroEligible || retroTooOld);
 
   // サイドバードロップダウンからのナビゲーション時にカテゴリを同期
   useEffect(() => {
@@ -263,6 +306,7 @@ export default function VacationRequest() {
     const firstType = cat?.types[0]?.value ?? "FULL";
     setForm((p) => ({ ...p, vacationType: firstType }));
     setAttachmentFile(null);
+    setRetroReason("");
   };
 
   const load = useCallback(() => {
@@ -298,6 +342,7 @@ export default function VacationRequest() {
         vacationStartDate: form.vacationStartDate,
         vacationEndDate: form.vacationEndDate,
         reason: form.reason.trim() || undefined,
+        retroReason: isStartPast && isRetroEligible ? retroReason.trim() || undefined : undefined,
       };
 
       const formData = new FormData();
@@ -310,6 +355,7 @@ export default function VacationRequest() {
       setSuccessMsg("休暇申請を送信しました。管理者の承認をお待ちください。");
       setForm((p) => ({ ...p, vacationStartDate: today(), vacationEndDate: today(), reason: "" }));
       setAttachmentFile(null);
+      setRetroReason("");
       load();
       refetchBalance();
     } catch (err) {
@@ -334,6 +380,29 @@ export default function VacationRequest() {
       refetchBalance();
     } catch (err) {
       setError(err.response?.data?.error || "キャンセルに失敗しました。");
+    }
+  };
+
+  const onProofUpload = async (e) => {
+    e.preventDefault();
+    if (!proofFile || !proofTargetIds?.length) return;
+    setError("");
+    setProofSubmitting(true);
+    try {
+      for (const id of proofTargetIds) {
+        const fd = new FormData();
+        fd.append("file", proofFile);
+        // eslint-disable-next-line no-await-in-loop
+        await api.post(`/vacations/${id}/proof`, fd);
+      }
+      setSuccessMsg("証明書をアップロードしました。管理者が確認後、承認が完了します。");
+      setProofFile(null);
+      setProofTargetIds(null);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.error || "アップロードに失敗しました。");
+    } finally {
+      setProofSubmitting(false);
     }
   };
 
@@ -449,11 +518,45 @@ export default function VacationRequest() {
             </div>
 
             <div style={{ display: "flex", alignItems: "flex-end" }}>
-              <button type="submit" className="primary" disabled={submitting}>
+              <button type="submit" className="primary" disabled={submitting || cannotSubmit || retroNeedsReason}>
                 {submitting ? "申請中…" : "申請する"}
               </button>
             </div>
           </div>
+
+          {/* ── 遡及申請バナー ── */}
+          {isStartPast && !cannotSubmit && (
+            <div style={{ marginTop: 12, padding: "12px 14px", background: "#fff8e1", border: "1px solid #fde68a", borderRadius: 8 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, color: "#b45309", marginBottom: 6 }}>
+                ⚠ 遡及申請（過去日付: {daysBack}日前）
+              </div>
+              <div style={{ fontSize: 12, color: "#7c6005", marginBottom: 8 }}>
+                遡及申請の場合、管理者の承認後に証明書の提出が求められる場合があります。
+              </div>
+              <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 4 }}>
+                申請事由 <span style={{ color: "#e53e3e" }}>*必須</span>
+              </label>
+              <textarea
+                value={retroReason}
+                onChange={(e) => setRetroReason(e.target.value)}
+                placeholder="遡及申請の理由を入力してください（例: 急病のため事前申請できませんでした）"
+                rows={2}
+                maxLength={500}
+                style={{ width: "100%", boxSizing: "border-box", padding: "6px 10px", fontSize: 13,
+                         border: "1px solid #ccc", borderRadius: 4, resize: "vertical", fontFamily: "inherit" }}
+              />
+            </div>
+          )}
+          {isStartPast && retroTooOld && (
+            <div style={{ marginTop: 10, padding: "10px 14px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 8, fontSize: 13, color: "#be123c" }}>
+              🚫 遡及申請の期限（最大{maxRetroDays}日前）を超えています。管理者に代理申請を依頼してください。
+            </div>
+          )}
+          {isStartPast && !isRetroEligible && (
+            <div style={{ marginTop: 10, padding: "10px 14px", background: "#fff1f2", border: "1px solid #fecdd3", borderRadius: 8, fontSize: 13, color: "#be123c" }}>
+              🚫 「{TYPE_LABEL[form.vacationType] ?? form.vacationType}」は遡及申請できません。管理者に代理申請を依頼してください。
+            </div>
+          )}
 
           {/* 添付書類アップロード（経弔・産休育休・病欠のみ） */}
           {requiresAttachment && (
@@ -532,7 +635,7 @@ export default function VacationRequest() {
                 <th>承認者</th>
                 <th>却下理由</th>
                 <th>申請日時</th>
-                <th>添付書類</th>
+                <th>書類</th>
                 <th></th>
               </tr>
             </thead>
@@ -542,6 +645,7 @@ export default function VacationRequest() {
                 const rangeText = g.startDate === g.endDate
                   ? g.startDate
                   : `${g.startDate} ~ ${g.endDate}`;
+                const isPendingProof = r.status === "APPROVED_PENDING_PROOF";
                 return (
                   <tr key={`${g.key}-${g.startDate}-${g.endDate}`}>
                     <td style={{ whiteSpace: "nowrap", fontWeight: 600 }}>
@@ -551,10 +655,29 @@ export default function VacationRequest() {
                           ({g.requestIds.length}日)
                         </span>
                       )}
+                      {r.retroactive && (
+                        <span style={{ marginLeft: 6, fontSize: 11, background: "#fff3cd", color: "#856404",
+                                       border: "1px solid #ffc107", borderRadius: 4, padding: "1px 5px" }}>
+                          遡及
+                        </span>
+                      )}
+                      {r.proxy && (
+                        <span style={{ marginLeft: 4, fontSize: 11, background: "#e8eaf6", color: "#3949ab",
+                                       border: "1px solid #9fa8da", borderRadius: 4, padding: "1px 5px" }}>
+                          代理
+                        </span>
+                      )}
                     </td>
                     <td style={{ whiteSpace: "nowrap" }}>{TYPE_LABEL[r.vacationType] ?? r.vacationType}</td>
                     <td style={{ maxWidth: 200, wordBreak: "break-word" }}>{r.reason ?? "—"}</td>
-                    <td><StatusBadge status={r.status} /></td>
+                    <td>
+                      <StatusBadge status={r.status} />
+                      {isPendingProof && r.proofDueDate && (
+                        <div style={{ fontSize: 11, color: "#856404", marginTop: 2 }}>
+                          期限: {r.proofDueDate}
+                        </div>
+                      )}
+                    </td>
                     <td>{r.approvedByName ?? "—"}</td>
                     <td style={{ maxWidth: 200, wordBreak: "break-word", color: "#e53e3e" }}>
                       {r.rejectReason ?? "—"}
@@ -573,6 +696,15 @@ export default function VacationRequest() {
                         >
                           📎 書類
                         </a>
+                      ) : isPendingProof ? (
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ padding: "3px 10px", fontSize: 11, color: "#856404", borderColor: "#ffc107" }}
+                          onClick={() => { setProofTargetIds(g.requestIds); setProofFile(null); setError(""); }}
+                        >
+                          📤 証明書提出
+                        </button>
                       ) : "—"}
                     </td>
                     <td>
@@ -596,6 +728,55 @@ export default function VacationRequest() {
       </div>
 
       <BackToMenuLink />
+
+      {/* 証明書アップロードモーダル */}
+      {proofTargetIds && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex",
+                   alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}
+          onClick={() => setProofTargetIds(null)}
+          role="presentation"
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 440, width: "100%", margin: 0 }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+          >
+            <h3 style={{ marginTop: 0 }}>証明書をアップロード</h3>
+            <p style={{ fontSize: 13, color: "#555", marginTop: 0 }}>
+              承認された遡及申請の証明書（診断書・会葬令状など）を提出してください。
+              管理者が確認後、申請が最終承認されます。
+            </p>
+            <form onSubmit={onProofUpload}>
+              <div style={{ marginBottom: 14 }}>
+                <input
+                  type="file"
+                  accept=".pdf,image/jpeg,image/png,image/gif,image/webp"
+                  onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+                  style={{ fontSize: 13 }}
+                  required
+                />
+                {proofFile && (
+                  <div style={{ marginTop: 6, fontSize: 12, color: "#1a56db" }}>
+                    {proofFile.name} ({(proofFile.size / 1024).toFixed(0)} KB)
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button type="submit" className="primary" disabled={!proofFile || proofSubmitting}>
+                  {proofSubmitting ? "アップロード中…" : "提出する"}
+                </button>
+                <button type="button" className="secondary" disabled={proofSubmitting}
+                        onClick={() => setProofTargetIds(null)}>
+                  キャンセル
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
